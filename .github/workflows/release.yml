@@ -37,8 +37,25 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build APK (Split per ABI)
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release-keystore.jks
+
+      - name: Create key.properties
+        run: |
+          cat > android/key.properties << EOF
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=release-keystore.jks
+          EOF
+
+      - name: Build APK (Split per ABI, Signed)
         run: flutter build apk --release --split-per-abi
+
+      - name: Cleanup keystore
+        if: always()
+        run: rm -f android/app/release-keystore.jks android/key.properties
 
       - name: Create Tagged Release
         uses: softprops/action-gh-release@v2

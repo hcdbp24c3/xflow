@@ -142,3 +142,5 @@ env/
 /docs/tutorial.md
 /docs/tutorial/*
 /api_response
+.hive/
+.hive2/

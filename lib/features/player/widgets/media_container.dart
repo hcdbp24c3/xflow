@@ -36,13 +36,28 @@ class TiktokMediaContainer extends ConsumerStatefulWidget {
       _TiktokMediaContainerState();
 }
 
-class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
+class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
+    with SingleTickerProviderStateMixin {
   final GlobalKey<VideoState> _videoKey = GlobalKey<VideoState>();
   int _imageIndex = 0;
   int _retryCount = 0;
   bool _isAutoFullscreenDone = false;
   StreamSubscription? _errorSubscription;
   StreamSubscription? _completedSubscription;
+
+  // Double-tap like state
+  Offset? _likePosition;
+  bool _showLikeHeart = false;
+  AnimationController? _likeAnimController;
+  Animation<double>? _likeScaleAnim;
+  Animation<double>? _likeOpacityAnim;
+
+  // Seek bar state
+  bool _isSeeking = false;
+  double _seekPosition = 0.0;
+
+  // Single-tap delay to avoid conflict with double-tap
+  Timer? _tapTimer;
 
   @override
   void didUpdateWidget(TiktokMediaContainer oldWidget) {
@@ -56,7 +71,50 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
   void dispose() {
     _errorSubscription?.cancel();
     _completedSubscription?.cancel();
+    _likeAnimController?.dispose();
+    _tapTimer?.cancel();
     super.dispose();
+  }
+
+  void _handleDoubleTap(TapDownDetails details) {
+    final tweetId = widget.tweet.id;
+    ref.read(feedNotifierProvider.notifier).toggleLike(tweetId);
+
+    setState(() {
+      _likePosition = details.localPosition;
+      _showLikeHeart = true;
+    });
+
+    _likeAnimController?.dispose();
+    _likeAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _likeScaleAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.2), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 20),
+    ]).animate(CurvedAnimation(
+      parent: _likeAnimController!,
+      curve: Curves.easeOut,
+    ));
+
+    _likeOpacityAnim = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _likeAnimController!,
+        curve: const Interval(0.6, 1.0),
+      ),
+    );
+
+    _likeAnimController!.addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
+        setState(() => _showLikeHeart = false);
+      }
+    });
+
+    _likeAnimController!.forward();
   }
 
   void _handleCompleted() async {
@@ -354,14 +412,46 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
                             children: [
                               GestureDetector(
                                 onTap: () {
-                                  if (instance.player.state.playing) {
-                                    instance.player.pause();
-                                  } else {
-                                    instance.player.play();
-                                  }
+                                  // Delay single-tap to check if double-tap follows
+                                  _tapTimer?.cancel();
+                                  _tapTimer = Timer(
+                                      const Duration(milliseconds: 300), () {
+                                    if (instance.player.state.playing) {
+                                      instance.player.pause();
+                                    } else {
+                                      instance.player.play();
+                                    }
+                                  });
+                                },
+                                onDoubleTapDown: (details) {
+                                  _tapTimer?.cancel();
+                                  _handleDoubleTap(details);
                                 },
                                 behavior: HitTestBehavior.opaque,
                               ),
+                              // Double-tap heart overlay
+                              if (_showLikeHeart && _likePosition != null)
+                                Positioned(
+                                  left: _likePosition!.dx - 40,
+                                  top: _likePosition!.dy - 40,
+                                  child: AnimatedBuilder(
+                                    animation: _likeAnimController!,
+                                    builder: (context, child) {
+                                      return Opacity(
+                                        opacity: _likeOpacityAnim?.value ?? 0,
+                                        child: Transform.scale(
+                                          scale: _likeScaleAnim?.value ?? 0,
+                                          child: child,
+                                        ),
+                                      );
+                                    },
+                                    child: const Icon(
+                                      Icons.favorite,
+                                      color: Colors.red,
+                                      size: 80,
+                                    ),
+                                  ),
+                                ),
                               if (widget.overlayBuilder != null)
                                 Positioned.fill(
                                   child: widget.overlayBuilder!(
@@ -383,20 +473,157 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
                   ),
                 ),
               ),
-              // Progress Bar at the very bottom
+              // Seek Bar at the very bottom
               Positioned(
                 bottom: 0,
                 left: 0,
                 right: 0,
-                child: IgnorePointer(
-                  child: _buildProgressBar(instance),
-                ),
+                child: _buildSeekBar(instance),
               ),
             ],
           );
         },
       ),
     );
+  }
+
+  Widget _buildSeekBar(PlayerInstance instance) {
+    return StreamBuilder<Duration>(
+      stream: instance.player.stream.position,
+      builder: (context, snapshot) {
+        final position = snapshot.data ?? Duration.zero;
+        final duration = instance.player.state.duration;
+
+        if (duration == Duration.zero) return const SizedBox.shrink();
+
+        final progress = _isSeeking
+            ? _seekPosition
+            : position.inMilliseconds / duration.inMilliseconds;
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final totalWidth = constraints.maxWidth;
+            const touchAreaHeight = 24.0;
+            const barHeight = 2.0;
+            const thumbSize = 12.0;
+
+            return GestureDetector(
+              onHorizontalDragStart: (details) {
+                _isSeeking = true;
+                _seekPosition =
+                    (details.localPosition.dx / totalWidth).clamp(0.0, 1.0);
+                setState(() {});
+              },
+              onHorizontalDragUpdate: (details) {
+                _seekPosition =
+                    (details.localPosition.dx / totalWidth).clamp(0.0, 1.0);
+                setState(() {});
+              },
+              onHorizontalDragEnd: (details) {
+                final seekTo = Duration(
+                  milliseconds:
+                      (_seekPosition * duration.inMilliseconds).round(),
+                );
+                instance.player.seek(seekTo);
+                _isSeeking = false;
+                setState(() {});
+              },
+              onTapDown: (details) {
+                _isSeeking = true;
+                _seekPosition =
+                    (details.localPosition.dx / totalWidth).clamp(0.0, 1.0);
+                setState(() {});
+              },
+              onTapUp: (details) {
+                final seekTo = Duration(
+                  milliseconds:
+                      (_seekPosition * duration.inMilliseconds).round(),
+                );
+                instance.player.seek(seekTo);
+                _isSeeking = false;
+                setState(() {});
+              },
+              child: SizedBox(
+                height: touchAreaHeight,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Background bar
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: (touchAreaHeight - barHeight) / 2,
+                      child: Container(
+                        height: barHeight,
+                        color: Colors.white24,
+                      ),
+                    ),
+                    // Progress bar
+                    Positioned(
+                      left: 0,
+                      top: (touchAreaHeight - barHeight) / 2,
+                      child: Container(
+                        height: barHeight,
+                        width: totalWidth * progress.clamp(0.0, 1.0),
+                        color: Colors.white,
+                      ),
+                    ),
+                    // Thumb
+                    Positioned(
+                      left: totalWidth * progress.clamp(0.0, 1.0) - thumbSize / 2,
+                      top: (touchAreaHeight - thumbSize) / 2,
+                      child: Container(
+                        width: thumbSize,
+                        height: thumbSize,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                    // Time label when seeking
+                    if (_isSeeking)
+                      Positioned(
+                        top: 0,
+                        left: (totalWidth * _seekPosition).clamp(
+                            thumbSize / 2, totalWidth - thumbSize / 2),
+                        child: Transform.translate(
+                          offset: const Offset(0, -14),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.black87,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              _formatDuration(Duration(
+                                milliseconds:
+                                    (_seekPosition * duration.inMilliseconds)
+                                        .round(),
+                              )),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
   }
 
   Widget _buildProgressBar(PlayerInstance instance) {
