@@ -619,6 +619,71 @@ class Repository {
     );
   }
 
+  static Future<void> insertBookmark(Tweet tweet) async {
+    final db = await database;
+    await db.insert(
+      BookmarkFields.tableBookmarks,
+      {
+        BookmarkFields.tweetId: tweet.id,
+        BookmarkFields.savedAt: DateTime.now().millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<void> removeBookmark(String tweetId) async {
+    final db = await database;
+    await db.delete(
+      BookmarkFields.tableBookmarks,
+      where: '${BookmarkFields.tweetId} = ?',
+      whereArgs: [tweetId],
+    );
+  }
+
+  static Future<bool> isBookmarked(String tweetId) async {
+    final db = await database;
+    final result = await db.query(
+      BookmarkFields.tableBookmarks,
+      columns: [BookmarkFields.tweetId],
+      where: '${BookmarkFields.tweetId} = ?',
+      whereArgs: [tweetId],
+      limit: 1,
+    );
+    return result.isNotEmpty;
+  }
+
+  static Future<List<Tweet>> getBookmarks() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT cm.*
+      FROM ${BookmarkFields.tableBookmarks} bm
+      INNER JOIN $tableCachedMedia cm ON cm.id = bm.${BookmarkFields.tweetId}
+      ORDER BY bm.${BookmarkFields.savedAt} DESC
+    ''');
+
+    return List.generate(maps.length, (i) {
+      return Tweet(
+        id: maps[i]['id'] as String,
+        text: maps[i]['text'] as String,
+        userHandle: maps[i]['user_handle'] as String,
+        userAvatarUrl: maps[i]['user_avatar_url'] as String?,
+        mediaKey: maps[i]['media_key'] as String?,
+        mediaUrls:
+            List<String>.from(jsonDecode(maps[i]['media_urls'] as String)),
+        thumbnailUrl: maps[i]['thumbnail_url'] as String?,
+        isVideo: (maps[i]['is_video'] as int) == 1,
+        createdAt: maps[i]['created_at'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(maps[i]['created_at'] as int)
+            : null,
+        favoriteCount: (maps[i]['favorite_count'] as int?) ?? 0,
+        replyCount: (maps[i]['reply_count'] as int?) ?? 0,
+        retweetCount: (maps[i]['retweet_count'] as int?) ?? 0,
+        viewCount: (maps[i]['view_count'] as int?) ?? 0,
+        isBookmarked: true,
+      );
+    });
+  }
+
   static Future<void> close() async {
     if (_database != null) {
       await _database!.close();
