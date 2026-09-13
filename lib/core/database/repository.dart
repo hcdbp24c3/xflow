@@ -30,7 +30,7 @@ class Repository {
     }
     return await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: (db, version) async {
         await db.execute(
           'CREATE TABLE $tableAccounts (id TEXT PRIMARY KEY, screen_name TEXT, rest_id TEXT, auth_header TEXT)',
@@ -55,9 +55,14 @@ class Repository {
             played_count INTEGER DEFAULT 0,
             last_played_at INTEGER,
             duration_watched INTEGER DEFAULT 0,
-            last_suggested_at INTEGER
+            last_suggested_at INTEGER,
+            favorite_count INTEGER NOT NULL DEFAULT 0,
+            reply_count INTEGER NOT NULL DEFAULT 0,
+            retweet_count INTEGER NOT NULL DEFAULT 0,
+            view_count INTEGER NOT NULL DEFAULT 0
           )
         ''');
+        await db.execute(createBookmarksTable);
         await db.execute(
           'CREATE INDEX idx_discovery_lookup ON $tableCachedMedia (played_count, created_at DESC)',
         );
@@ -124,6 +129,17 @@ class Repository {
               'ALTER TABLE $tableCachedMedia ADD COLUMN last_suggested_at INTEGER');
           await db.execute(
               'CREATE INDEX IF NOT EXISTS idx_suggested ON $tableCachedMedia (last_suggested_at)');
+        }
+        if (oldVersion < 10) {
+          await db.execute(
+              'ALTER TABLE $tableCachedMedia ADD COLUMN favorite_count INTEGER NOT NULL DEFAULT 0');
+          await db.execute(
+              'ALTER TABLE $tableCachedMedia ADD COLUMN reply_count INTEGER NOT NULL DEFAULT 0');
+          await db.execute(
+              'ALTER TABLE $tableCachedMedia ADD COLUMN retweet_count INTEGER NOT NULL DEFAULT 0');
+          await db.execute(
+              'ALTER TABLE $tableCachedMedia ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0');
+          await db.execute(createBookmarksTable);
         }
       },
     );
@@ -215,6 +231,10 @@ class Repository {
           'thumbnail_url': tweet.thumbnailUrl,
           'is_video': tweet.isVideo ? 1 : 0,
           'created_at': tweet.createdAt?.millisecondsSinceEpoch,
+          'favorite_count': tweet.favoriteCount,
+          'reply_count': tweet.replyCount,
+          'retweet_count': tweet.retweetCount,
+          'view_count': tweet.viewCount,
         },
         conflictAlgorithm: ConflictAlgorithm
             .ignore, // Don't overwrite play counts if already exists
@@ -278,6 +298,10 @@ class Repository {
         createdAt: maps[i]['created_at'] != null
             ? DateTime.fromMillisecondsSinceEpoch(maps[i]['created_at'] as int)
             : null,
+        favoriteCount: (maps[i]['favorite_count'] as int?) ?? 0,
+        replyCount: (maps[i]['reply_count'] as int?) ?? 0,
+        retweetCount: (maps[i]['retweet_count'] as int?) ?? 0,
+        viewCount: (maps[i]['view_count'] as int?) ?? 0,
       );
     });
 
@@ -346,6 +370,10 @@ class Repository {
         createdAt: maps[i]['created_at'] != null
             ? DateTime.fromMillisecondsSinceEpoch(maps[i]['created_at'] as int)
             : null,
+        favoriteCount: (maps[i]['favorite_count'] as int?) ?? 0,
+        replyCount: (maps[i]['reply_count'] as int?) ?? 0,
+        retweetCount: (maps[i]['retweet_count'] as int?) ?? 0,
+        viewCount: (maps[i]['view_count'] as int?) ?? 0,
       );
     });
 
@@ -443,6 +471,10 @@ class Repository {
         createdAt: maps[i]['created_at'] != null
             ? DateTime.fromMillisecondsSinceEpoch(maps[i]['created_at'] as int)
             : null,
+        favoriteCount: (maps[i]['favorite_count'] as int?) ?? 0,
+        replyCount: (maps[i]['reply_count'] as int?) ?? 0,
+        retweetCount: (maps[i]['retweet_count'] as int?) ?? 0,
+        viewCount: (maps[i]['view_count'] as int?) ?? 0,
       );
     });
   }
@@ -496,6 +528,10 @@ class Repository {
         createdAt: maps[i]['created_at'] != null
             ? DateTime.fromMillisecondsSinceEpoch(maps[i]['created_at'] as int)
             : null,
+        favoriteCount: (maps[i]['favorite_count'] as int?) ?? 0,
+        replyCount: (maps[i]['reply_count'] as int?) ?? 0,
+        retweetCount: (maps[i]['retweet_count'] as int?) ?? 0,
+        viewCount: (maps[i]['view_count'] as int?) ?? 0,
       );
     });
   }

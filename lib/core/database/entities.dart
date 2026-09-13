@@ -74,3 +74,18 @@ class Subscription {
     );
   }
 }
+
+class BookmarkFields {
+  static const String tableBookmarks = 'bookmarks';
+  static const String id = 'id';
+  static const String tweetId = 'tweet_id';
+  static const String savedAt = 'saved_at';
+}
+
+const String createBookmarksTable = '''
+  CREATE TABLE ${BookmarkFields.tableBookmarks} (
+    ${BookmarkFields.id} INTEGER PRIMARY KEY AUTOINCREMENT,
+    ${BookmarkFields.tweetId} TEXT NOT NULL UNIQUE,
+    ${BookmarkFields.savedAt} INTEGER NOT NULL
+  )
+''';
