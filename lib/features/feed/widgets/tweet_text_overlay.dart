@@ -174,31 +174,45 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
               final handle = widget.tweet.userHandle.replaceFirst('@', '');
               ref.read(navigationProvider.notifier).selectUser(handle);
             },
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Flexible(
-                  child: Text(
-                    widget.tweet.userHandle,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      shadows: [
-                        Shadow(
-                            offset: Offset(0, 1),
-                            blurRadius: 2,
-                            color: Colors.black54),
-                      ],
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        widget.tweet.userHandle,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          shadows: [
+                            Shadow(
+                                offset: Offset(0, 1),
+                                blurRadius: 2,
+                                color: Colors.black54),
+                          ],
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                    if (isSubscribed) ...[
+                      const SizedBox(width: 4),
+                      const Icon(Icons.check_circle,
+                          color: Colors.blueAccent, size: 16),
+                    ],
+                  ],
                 ),
-                if (isSubscribed) ...[
-                  const SizedBox(width: 4),
-                  const Icon(Icons.check_circle,
-                      color: Colors.blueAccent, size: 16),
-                ],
+                if (dateStr.isNotEmpty)
+                  Text(
+                    dateStr,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.6),
+                      fontSize: 12,
+                    ),
+                  ),
               ],
             ),
           ),
