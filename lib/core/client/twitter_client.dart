@@ -1398,6 +1398,8 @@ class TwitterClient {
         isLiked: legacy['favorited'] ?? false,
         favoriteCount: legacy['favorite_count'] ?? 0,
         replyCount: legacy['reply_count'] ?? 0,
+        retweetCount: legacy['retweet_count'] ?? 0,
+        viewCount: int.tryParse((tweetResult['views']?['count'] ?? legacy['views']?['count'] ?? '0').toString()) ?? 0,
       ));
     } catch (e) {
       AppLogger.log('Error in parseTweetResult for $entryId: $e');
