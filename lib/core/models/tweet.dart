@@ -12,6 +12,9 @@ class Tweet {
   final bool isLiked;
   final int favoriteCount;
   final int replyCount;
+  final int retweetCount;
+  final int viewCount;
+  final bool isBookmarked;
 
   Tweet({
     required this.id,
@@ -27,6 +30,9 @@ class Tweet {
     this.isLiked = false,
     this.favoriteCount = 0,
     this.replyCount = 0,
+    this.retweetCount = 0,
+    this.viewCount = 0,
+    this.isBookmarked = false,
   });
 
   String? get userAvatarUrlHighRes {
@@ -48,6 +54,9 @@ class Tweet {
     bool? isLiked,
     int? favoriteCount,
     int? replyCount,
+    int? retweetCount,
+    int? viewCount,
+    bool? isBookmarked,
   }) {
     return Tweet(
       id: id ?? this.id,
@@ -63,6 +72,9 @@ class Tweet {
       isLiked: isLiked ?? this.isLiked,
       favoriteCount: favoriteCount ?? this.favoriteCount,
       replyCount: replyCount ?? this.replyCount,
+      retweetCount: retweetCount ?? this.retweetCount,
+      viewCount: viewCount ?? this.viewCount,
+      isBookmarked: isBookmarked ?? this.isBookmarked,
     );
   }
 }
