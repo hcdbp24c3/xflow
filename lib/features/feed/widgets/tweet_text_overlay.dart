@@ -111,6 +111,17 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
             );
           },
         ),
+        const SizedBox(height: 16),
+        _ActionButton(
+          icon: Icons.replay,
+          label: _formatCount(widget.tweet.retweetCount),
+          onTap: () {},
+        ),
+        const SizedBox(height: 16),
+        _ActionButton(
+          icon: Icons.visibility_outlined,
+          label: _formatCount(widget.tweet.viewCount),
+        ),
         if (widget.onFullscreen != null && widget.tweet.isVideo) ...[
           const SizedBox(height: 16),
           _ActionButton(
@@ -383,59 +394,62 @@ class _ActionButton extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _ActionButton({
     required this.icon,
     this.color = Colors.white,
     required this.label,
-    required this.onTap,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final child = SizedBox(
+      width: 60,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.transparent,
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 32,
+              shadows: const [
+                Shadow(
+                    offset: Offset(0, 1), blurRadius: 4, color: Colors.black),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              shadows: [
+                Shadow(
+                    offset: Offset(0, 1),
+                    blurRadius: 2,
+                    color: Colors.black54),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (onTap == null) return child;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 60,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.transparent,
-              ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 32,
-                shadows: const [
-                  Shadow(
-                      offset: Offset(0, 1), blurRadius: 4, color: Colors.black),
-                ],
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                shadows: [
-                  Shadow(
-                      offset: Offset(0, 1),
-                      blurRadius: 2,
-                      color: Colors.black54),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+      child: child,
     );
   }
 }
