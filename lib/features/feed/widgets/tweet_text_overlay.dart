@@ -10,6 +10,7 @@ import '../../../core/utils/app_logger.dart';
 import '../../../core/database/entities.dart';
 import '../../subscriptions/subscription_list_screen.dart';
 import '../feed_provider.dart';
+import '../bookmark_provider.dart';
 import '../tweet_detail_screen.dart';
 
 class TweetTextOverlay extends ConsumerStatefulWidget {
@@ -97,6 +98,15 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
           label: _formatCount(widget.tweet.replyCount),
           onTap: () {
             TweetRepliesSheet.show(context, widget.tweet);
+          },
+        ),
+        const SizedBox(height: 16),
+        _ActionButton(
+          icon: widget.tweet.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+          color: widget.tweet.isBookmarked ? Colors.amber : Colors.white,
+          label: "Save",
+          onTap: () {
+            ref.read(bookmarkListProvider.notifier).toggleBookmark(widget.tweet);
           },
         ),
         const SizedBox(height: 16),
