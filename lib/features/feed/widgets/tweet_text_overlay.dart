@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../core/models/tweet.dart';
 import '../../../core/navigation/navigation_provider.dart';
 import '../../../core/utils/app_logger.dart';
@@ -102,13 +103,10 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
         _ActionButton(
           icon: Icons.share_outlined,
           label: "Share",
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Share functionality coming soon!"),
-                duration: Duration(seconds: 1),
-              ),
-            );
+          onTap: () async {
+            final handle = widget.tweet.userHandle.replaceFirst('@', '');
+            final url = 'https://x.com/$handle/status/${widget.tweet.id}';
+            await Share.share(url, subject: 'Check out this tweet');
           },
         ),
         const SizedBox(height: 16),
