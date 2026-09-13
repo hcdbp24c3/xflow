@@ -51,7 +51,7 @@ jobs:
           EOF
 
       - name: Build APK (Split per ABI, Signed)
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi --no-tree-shake-icons
 
       - name: Cleanup keystore
         if: always()
