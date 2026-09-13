@@ -9,6 +9,7 @@ import '../../core/database/repository.dart';
 import '../settings/settings_screen.dart';
 import '../settings/settings_provider.dart';
 import '../auth/login_screen.dart';
+import 'bookmarks_screen.dart';
 import '../../core/client/account_provider.dart';
 import '../../core/navigation/navigation_provider.dart';
 import 'widgets/tweet_text_overlay.dart';
@@ -128,6 +129,13 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
               icon: const Icon(Icons.login),
               label: const Text('Login'),
             ),
+          IconButton(
+            icon: const Icon(Icons.bookmark_border),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (c) => const BookmarksScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => Navigator.push(
