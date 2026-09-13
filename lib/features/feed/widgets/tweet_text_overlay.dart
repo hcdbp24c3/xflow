@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/models/tweet.dart';
 import '../../../core/navigation/navigation_provider.dart';
 import '../../../core/utils/app_logger.dart';
@@ -148,6 +149,7 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
     }
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         GestureDetector(
           onTap: () {
@@ -167,61 +169,43 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                onTap: () {
-                  final handle = widget.tweet.userHandle.replaceFirst('@', '');
-                  ref.read(navigationProvider.notifier).selectUser(handle);
-                },
-                child: Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        widget.tweet.userHandle,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          shadows: [
-                            Shadow(
-                                offset: Offset(0, 1),
-                                blurRadius: 2,
-                                color: Colors.black54),
-                          ],
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+          child: GestureDetector(
+            onTap: () {
+              final handle = widget.tweet.userHandle.replaceFirst('@', '');
+              ref.read(navigationProvider.notifier).selectUser(handle);
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    widget.tweet.userHandle,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      shadows: [
+                        Shadow(
+                            offset: Offset(0, 1),
+                            blurRadius: 2,
+                            color: Colors.black54),
+                      ],
                     ),
-                    if (isSubscribed) ...[
-                      const SizedBox(width: 4),
-                      const Icon(Icons.check_circle,
-                          color: Colors.blueAccent, size: 16),
-                    ],
-                  ],
-                ),
-              ),
-              if (dateStr.isNotEmpty)
-                Text(
-                  dateStr.replaceFirst(" • ", ""),
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    shadows: [
-                      Shadow(
-                          offset: Offset(0, 1),
-                          blurRadius: 2,
-                          color: Colors.black54),
-                    ],
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-            ],
+                if (isSubscribed) ...[
+                  const SizedBox(width: 4),
+                  const Icon(Icons.check_circle,
+                      color: Colors.blueAccent, size: 16),
+                ],
+              ],
+            ),
           ),
         ),
         if (!isSubscribed)
-          IconButton(
-            onPressed: () {
+          GestureDetector(
+            onTap: () {
               ref.read(subscriptionListProvider.notifier).toggleSubscription(
                     Subscription(
                       id: widget.tweet.userHandle,
@@ -231,13 +215,21 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
                     ),
                   );
             },
-            icon: const Icon(Icons.add, color: Colors.white, size: 20),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.blueAccent.withValues(alpha: 0.6),
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.blueAccent.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Follow',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-            tooltip: 'Subscribe',
           ),
       ],
     );
@@ -247,8 +239,7 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
     final text = widget.tweet.text;
     final List<InlineSpan> spans = [];
 
-    // Simple hashtag and mention parsing
-    // We need to preserve whitespace, but Dart's split() with RegExp doesn't keep groups.
+    // Parse text for hashtags, mentions, and URLs
     final List<String> words = [];
     final matches = RegExp(r'(\s+)').allMatches(text);
     int lastEnd = 0;
@@ -296,6 +287,30 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
                   color: Colors.lightBlueAccent,
                   fontWeight: FontWeight.w500,
                   fontSize: 15,
+                ),
+              ),
+            ),
+          ),
+        );
+      } else if (word.startsWith('http://') || word.startsWith('https://')) {
+        // Clean URL (remove trailing punctuation)
+        final cleanUrl = word.replaceAll(RegExp(r'[.,!?;:)\]]+$'), '');
+        spans.add(
+          WidgetSpan(
+            child: GestureDetector(
+              onTap: () async {
+                final uri = Uri.parse(cleanUrl);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+              child: Text(
+                cleanUrl,
+                style: const TextStyle(
+                  color: Colors.lightBlueAccent,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 15,
+                  decoration: TextDecoration.underline,
                 ),
               ),
             ),
