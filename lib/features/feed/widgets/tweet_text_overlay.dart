@@ -353,37 +353,37 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
       }
     }
 
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _isExpanded = !_isExpanded;
-        });
-      },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          RichText(
-            text: TextSpan(
-              children: spans,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                height: 1.4,
-                shadows: [
-                  Shadow(
-                      offset: Offset(0, 1), blurRadius: 2, color: Colors.black),
-                ],
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RichText(
+          text: TextSpan(
+            children: spans,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              height: 1.4,
+              shadows: [
+                Shadow(
+                    offset: Offset(0, 1), blurRadius: 2, color: Colors.black),
+              ],
             ),
-            maxLines: _isExpanded ? null : 3,
-            overflow:
-                _isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
           ),
-          if (!_isExpanded && widget.tweet.text.length > 100)
-            const Padding(
+          maxLines: _isExpanded ? null : 3,
+          overflow:
+              _isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+        ),
+        if (!_isExpanded && widget.tweet.text.length > 100)
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isExpanded = true;
+              });
+            },
+            child: const Padding(
               padding: EdgeInsets.only(top: 4.0),
               child: Text(
-                "Read more",
+                "Xem thêm",
                 style: TextStyle(
                   color: Colors.white70,
                   fontWeight: FontWeight.bold,
@@ -391,8 +391,8 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
                 ),
               ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }

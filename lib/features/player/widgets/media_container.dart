@@ -78,6 +78,13 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
 
   void _handleDoubleTap(TapDownDetails details) {
     final tweetId = widget.tweet.id;
+    final tweet = ref.read(feedNotifierProvider).value?.tweets.firstWhere(
+          (t) => t.id == tweetId,
+          orElse: () => widget.tweet,
+        );
+    // Only like, don't toggle (skip if already liked)
+    if (tweet != null && tweet.isLiked) return;
+
     ref.read(feedNotifierProvider.notifier).toggleLike(tweetId);
 
     setState(() {
@@ -186,7 +193,35 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
     if (!widget.tweet.isVideo) {
       return Stack(
         children: [
-          _buildImageGallery(),
+          GestureDetector(
+            onDoubleTapDown: (details) {
+              _handleDoubleTap(details);
+            },
+            behavior: HitTestBehavior.opaque,
+            child: _buildImageGallery(),
+          ),
+          if (_showLikeHeart && _likePosition != null)
+            Positioned(
+              left: _likePosition!.dx - 40,
+              top: _likePosition!.dy - 40,
+              child: AnimatedBuilder(
+                animation: _likeAnimController!,
+                builder: (context, child) {
+                  return Opacity(
+                    opacity: _likeOpacityAnim?.value ?? 0,
+                    child: Transform.scale(
+                      scale: _likeScaleAnim?.value ?? 0,
+                      child: child,
+                    ),
+                  );
+                },
+                child: const Icon(
+                  Icons.favorite,
+                  color: Colors.red,
+                  size: 80,
+                ),
+              ),
+            ),
           if (widget.tweet.mediaUrls.length > 1)
             Positioned(
               bottom: 120, // Above the text overlay
@@ -475,7 +510,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
               ),
               // Seek Bar at the very bottom
               Positioned(
-                bottom: 0,
+                bottom: 8,
                 left: 0,
                 right: 0,
                 child: _buildSeekBar(instance),
@@ -503,9 +538,9 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
         return LayoutBuilder(
           builder: (context, constraints) {
             final totalWidth = constraints.maxWidth;
-            const touchAreaHeight = 24.0;
-            const barHeight = 2.0;
-            const thumbSize = 12.0;
+            const touchAreaHeight = 40.0;
+            const barHeight = 3.0;
+            const thumbSize = 14.0;
 
             return GestureDetector(
               onHorizontalDragStart: (details) {
