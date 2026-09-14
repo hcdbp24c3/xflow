@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/tweet.dart';
 import '../../core/database/repository.dart';
+import '../../core/utils/app_logger.dart';
 
 class BookmarkListNotifier extends AsyncNotifier<List<Tweet>> {
   @override
@@ -13,10 +13,10 @@ class BookmarkListNotifier extends AsyncNotifier<List<Tweet>> {
   Future<List<Tweet>> _loadBookmarks() async {
     try {
       final bookmarks = await Repository.getBookmarks();
-      debugPrint('XFLOW: Loaded ${bookmarks.length} bookmarks');
+      AppLogger.log('XFLOW: Loaded ${bookmarks.length} bookmarks');
       return bookmarks;
     } catch (e, st) {
-      debugPrint('XFLOW: Error loading bookmarks: $e\n$st');
+      AppLogger.log('XFLOW: Error loading bookmarks: $e\n$st');
       return [];
     }
   }
@@ -39,9 +39,9 @@ class BookmarkListNotifier extends AsyncNotifier<List<Tweet>> {
 
       try {
         await Repository.insertBookmark(tweet);
-        debugPrint('XFLOW: Bookmarked tweet ${tweet.id}');
+        AppLogger.log('XFLOW: Bookmarked tweet ${tweet.id}');
       } catch (e) {
-        debugPrint('XFLOW: Failed to bookmark tweet ${tweet.id}: $e');
+        AppLogger.log('XFLOW: Failed to bookmark tweet ${tweet.id}: $e');
         state = await AsyncValue.guard(() => _loadBookmarks());
       }
     } else {
@@ -52,11 +52,27 @@ class BookmarkListNotifier extends AsyncNotifier<List<Tweet>> {
 
       try {
         await Repository.removeBookmark(tweet.id);
-        debugPrint('XFLOW: Removed bookmark for tweet ${tweet.id}');
+        AppLogger.log('XFLOW: Removed bookmark for tweet ${tweet.id}');
       } catch (e) {
-        debugPrint('XFLOW: Failed to remove bookmark ${tweet.id}: $e');
+        AppLogger.log('XFLOW: Failed to remove bookmark ${tweet.id}: $e');
         state = await AsyncValue.guard(() => _loadBookmarks());
       }
+    }
+  }
+
+  Future<void> addBookmark(Tweet tweet) async {
+    final currentState = state.value;
+    if (currentState == null) return;
+
+    final updatedTweet = tweet.copyWith(isBookmarked: true);
+    state = AsyncData([updatedTweet, ...currentState]);
+
+    try {
+      await Repository.insertBookmark(tweet);
+      AppLogger.log('XFLOW: Bookmarked tweet ${tweet.id}');
+    } catch (e) {
+      AppLogger.log('XFLOW: Failed to bookmark tweet ${tweet.id}: $e');
+      state = await AsyncValue.guard(() => _loadBookmarks());
     }
   }
 }

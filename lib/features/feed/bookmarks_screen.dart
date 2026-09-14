@@ -12,7 +12,7 @@ class BookmarksScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bookmarks'),
+        title: const Text('Đã lưu'),
       ),
       body: bookmarksAsync.when(
         data: (bookmarks) => bookmarks.isEmpty
@@ -57,8 +57,7 @@ class BookmarksScreen extends ConsumerWidget {
                             onPressed: () {
                               ref
                                   .read(bookmarkListProvider.notifier)
-                                  .toggleBookmark(
-                                      tweet.copyWith(isBookmarked: false));
+                                  .addBookmark(tweet);
                             },
                           ),
                         ),

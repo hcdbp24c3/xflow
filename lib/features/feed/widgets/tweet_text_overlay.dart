@@ -104,7 +104,7 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
         _ActionButton(
           icon: widget.tweet.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
           color: widget.tweet.isBookmarked ? Colors.amber : Colors.white,
-          label: "Save",
+          label: "Lưu",
           onTap: () {
             ref.read(bookmarkListProvider.notifier).toggleBookmark(widget.tweet);
           },
@@ -112,18 +112,17 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
         const SizedBox(height: 16),
         _ActionButton(
           icon: Icons.share_outlined,
-          label: "Share",
+          label: "Chia sẻ",
           onTap: () async {
             final handle = widget.tweet.userHandle.replaceFirst('@', '');
             final url = 'https://x.com/$handle/status/${widget.tweet.id}';
-            await Share.share(url, subject: 'Check out this tweet');
+            await Share.share(url, subject: 'Xem tweet này');
           },
         ),
         const SizedBox(height: 16),
         _ActionButton(
           icon: Icons.replay,
           label: _formatCount(widget.tweet.retweetCount),
-          onTap: () {},
         ),
         const SizedBox(height: 16),
         _ActionButton(

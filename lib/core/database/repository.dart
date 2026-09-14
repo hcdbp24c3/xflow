@@ -285,6 +285,8 @@ class Repository {
     if (maps.isEmpty) return [];
 
     final results = List.generate(maps.length, (i) {
+      // NOTE: isBookmarked is not restored here — only the bookmarks screen
+      // loads directly from the bookmarks table (which sets isBookmarked = true).
       return Tweet(
         id: maps[i]['id'] as String,
         text: maps[i]['text'] as String,
@@ -357,6 +359,8 @@ class Repository {
     );
 
     final results = List.generate(maps.length, (i) {
+      // NOTE: isBookmarked is not restored here — only the bookmarks screen
+      // loads directly from the bookmarks table (which sets isBookmarked = true).
       return Tweet(
         id: maps[i]['id'] as String,
         text: maps[i]['text'] as String,
@@ -458,6 +462,8 @@ class Repository {
     );
 
     return List.generate(maps.length, (i) {
+      // NOTE: isBookmarked is not restored here — only the bookmarks screen
+      // loads directly from the bookmarks table (which sets isBookmarked = true).
       return Tweet(
         id: maps[i]['id'] as String,
         text: maps[i]['text'] as String,
@@ -515,6 +521,8 @@ class Repository {
     );
 
     return List.generate(maps.length, (i) {
+      // NOTE: isBookmarked is not restored here — only the bookmarks screen
+      // loads directly from the bookmarks table (which sets isBookmarked = true).
       return Tweet(
         id: maps[i]['id'] as String,
         text: maps[i]['text'] as String,
@@ -615,7 +623,8 @@ class Repository {
     final db = await database;
     await db.delete(
       tableCachedMedia,
-      where: 'played_count > 0',
+      where:
+          'played_count > 0 AND NOT EXISTS (SELECT 1 FROM ${BookmarkFields.tableBookmarks} WHERE ${BookmarkFields.tweetId} = $tableCachedMedia.id)',
     );
   }
 
