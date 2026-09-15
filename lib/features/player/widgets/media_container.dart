@@ -65,6 +65,18 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
     if (!oldWidget.isVisible && widget.isVisible) {
       _isAutoFullscreenDone = false;
     }
+    // Move play/pause out of build() to avoid side effects during rebuild
+    if (oldWidget.isVisible != widget.isVisible) {
+      final pool = ref.read(playerPoolProvider);
+      final instance = pool[widget.tweet.id];
+      if (instance != null) {
+        if (widget.isVisible) {
+          instance.player.play();
+        } else {
+          instance.player.pause();
+        }
+      }
+    }
   }
 
   @override
@@ -264,12 +276,6 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
       if (completed) _handleCompleted();
     });
 
-    if (widget.isVisible) {
-      instance.player.play();
-    } else {
-      instance.player.pause();
-    }
-
     final settings = ref.watch(settingsProvider);
     return PopScope(
       canPop: true,
@@ -462,7 +468,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
                                   _tapTimer?.cancel();
                                   _handleDoubleTap(details);
                                 },
-                                behavior: HitTestBehavior.opaque,
+                                behavior: HitTestBehavior.deferToChild,
                               ),
                               // Double-tap heart overlay
                               if (_showLikeHeart && _likePosition != null)
@@ -510,7 +516,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
               ),
               // Seek Bar at the very bottom
               Positioned(
-                bottom: 8,
+                bottom: 16,
                 left: 0,
                 right: 0,
                 child: _buildSeekBar(instance),
@@ -538,9 +544,9 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
         return LayoutBuilder(
           builder: (context, constraints) {
             final totalWidth = constraints.maxWidth;
-            const touchAreaHeight = 40.0;
-            const barHeight = 3.0;
-            const thumbSize = 14.0;
+            const touchAreaHeight = 56.0;
+            const barHeight = 4.0;
+            const thumbSize = 18.0;
 
             return GestureDetector(
               onHorizontalDragStart: (details) {
