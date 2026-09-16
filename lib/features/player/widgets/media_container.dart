@@ -92,30 +92,22 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
     final lastTap = _lastTapTime;
     _lastTapTime = now;
 
-    // Double-tap detected (within 300ms)
+    // Instant play/pause — no delay
+    final pool = ref.read(playerPoolProvider);
+    final instance = pool[widget.tweet.id];
+    if (instance != null) {
+      if (instance.player.state.playing) {
+        instance.player.pause();
+      } else {
+        instance.player.play();
+      }
+    }
+
+    // Double-tap detected (within 300ms) — also like
     if (lastTap != null && now.difference(lastTap).inMilliseconds < 300) {
       _lastTapTime = null;
       _handleDoubleTapAt(details.localPosition);
-      return;
     }
-
-    // Single-tap: schedule after 300ms (cancel if double-tap arrives)
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (!mounted) return;
-      // Only fire if no newer tap came in
-      if (_lastTapTime == now) {
-        _lastTapTime = null;
-        final pool = ref.read(playerPoolProvider);
-        final instance = pool[widget.tweet.id];
-        if (instance != null) {
-          if (instance.player.state.playing) {
-            instance.player.pause();
-          } else {
-            instance.player.play();
-          }
-        }
-      }
-    });
   }
 
   void _handleDoubleTapAt(Offset localPosition) {
@@ -534,10 +526,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
               ),
               // Text overlay — OUTSIDE Video widget so taps are not intercepted
               if (widget.overlayBuilder != null)
-                Positioned(
-                  bottom: 100,
-                  left: 0,
-                  right: 0,
+                Positioned.fill(
                   child: widget.overlayBuilder!(
                     context,
                     onFullscreen,
