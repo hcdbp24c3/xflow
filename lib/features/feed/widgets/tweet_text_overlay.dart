@@ -340,8 +340,16 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
             recognizer: TapGestureRecognizer()
               ..onTap = () async {
                 final uri = Uri.parse(cleanUrl);
-                if (await canLaunchUrl(uri)) {
+                try {
                   await launchUrl(uri, mode: LaunchMode.externalApplication);
+                } catch (_) {
+                  // Fallback: try with https if http fails
+                  if (!cleanUrl.startsWith('https')) {
+                    await launchUrl(
+                      Uri.parse('https$cleanUrl'),
+                      mode: LaunchMode.externalApplication,
+                    );
+                  }
                 }
               },
           ),
@@ -354,8 +362,8 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: TextSpan(
+        Text.rich(
+          TextSpan(
             children: spans,
             style: const TextStyle(
               color: Colors.white,
