@@ -451,29 +451,6 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
                           }
                           return Stack(
                             children: [
-                              // GestureDetector at bottom of Stack (tested last)
-                              // Handles play/pause and double-tap in non-overlay areas
-                              Positioned.fill(
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () {
-                                    _tapTimer?.cancel();
-                                    _tapTimer = Timer(
-                                        const Duration(milliseconds: 300), () {
-                                      if (instance.player.state.playing) {
-                                        instance.player.pause();
-                                      } else {
-                                        instance.player.play();
-                                      }
-                                    });
-                                  },
-                                  onDoubleTapDown: (details) {
-                                    _tapTimer?.cancel();
-                                    _handleDoubleTap(details);
-                                  },
-                                  child: const SizedBox.expand(),
-                                ),
-                              ),
                               // Double-tap heart overlay
                               if (_showLikeHeart && _likePosition != null)
                                 Positioned(
@@ -519,12 +496,38 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
                   ),
                 ),
               ),
-              // Seek Bar at the very bottom
+              // Seek Bar above the text overlay
               Positioned(
-                bottom: 16,
+                bottom: 220,
                 left: 0,
                 right: 0,
                 child: _buildSeekBar(instance),
+              ),
+              // Play/pause + double-tap gesture (above Video, covers top area)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 260,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    _tapTimer?.cancel();
+                    _tapTimer = Timer(
+                        const Duration(milliseconds: 150), () {
+                      if (instance.player.state.playing) {
+                        instance.player.pause();
+                      } else {
+                        instance.player.play();
+                      }
+                    });
+                  },
+                  onDoubleTapDown: (details) {
+                    _tapTimer?.cancel();
+                    _handleDoubleTap(details);
+                  },
+                  child: const SizedBox.expand(),
+                ),
               ),
             ],
           );
@@ -549,7 +552,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
         return LayoutBuilder(
           builder: (context, constraints) {
             final totalWidth = constraints.maxWidth;
-            const touchAreaHeight = 56.0;
+            const touchAreaHeight = 40.0;
             const barHeight = 4.0;
             const thumbSize = 18.0;
 

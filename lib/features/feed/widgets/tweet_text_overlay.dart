@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -34,7 +35,7 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = widget.isFullscreen ? 48.0 : 24.0;
+    final bottomPadding = widget.isFullscreen ? 48.0 : 40.0;
     final rightPadding = widget.isFullscreen ? 24.0 : 12.0;
 
     return Stack(
@@ -73,7 +74,7 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
         // Action Buttons (Right Side)
         Positioned(
           right: rightPadding,
-          bottom: widget.isFullscreen ? 60 : 70,
+          bottom: widget.isFullscreen ? 60 : 160,
           child: _buildActionButtons(),
         ),
       ],
@@ -289,63 +290,54 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
     for (final word in words) {
       if (word.startsWith('#') && word.length > 1) {
         spans.add(
-          WidgetSpan(
-            child: GestureDetector(
-              onTap: () {
+          TextSpan(
+            text: word,
+            style: const TextStyle(
+              color: Colors.lightBlueAccent,
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+            ),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () {
                 ref.read(navigationProvider.notifier).selectHashtag(word);
               },
-              child: Text(
-                word,
-                style: const TextStyle(
-                  color: Colors.lightBlueAccent,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
-              ),
-            ),
           ),
         );
       } else if (word.startsWith('@') && word.length > 1) {
         spans.add(
-          WidgetSpan(
-            child: GestureDetector(
-              onTap: () {
+          TextSpan(
+            text: word,
+            style: const TextStyle(
+              color: Colors.lightBlueAccent,
+              fontWeight: FontWeight.w500,
+              fontSize: 15,
+            ),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () {
                 final handle = word.replaceFirst('@', '');
                 ref.read(navigationProvider.notifier).selectUser(handle);
               },
-              child: Text(
-                word,
-                style: const TextStyle(
-                  color: Colors.lightBlueAccent,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 15,
-                ),
-              ),
-            ),
           ),
         );
       } else if (word.startsWith('http://') || word.startsWith('https://')) {
         // Clean URL (remove trailing punctuation)
         final cleanUrl = word.replaceAll(RegExp(r'[.,!?;:)\]]+$'), '');
         spans.add(
-          WidgetSpan(
-            child: GestureDetector(
-              onTap: () async {
+          TextSpan(
+            text: cleanUrl,
+            style: const TextStyle(
+              color: Colors.lightBlueAccent,
+              fontWeight: FontWeight.w500,
+              fontSize: 15,
+              decoration: TextDecoration.underline,
+            ),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () async {
                 final uri = Uri.parse(cleanUrl);
                 if (await canLaunchUrl(uri)) {
                   await launchUrl(uri, mode: LaunchMode.externalApplication);
                 }
               },
-              child: Text(
-                cleanUrl,
-                style: const TextStyle(
-                  color: Colors.lightBlueAccent,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 15,
-                  decoration: TextDecoration.underline,
-                ),
-              ),
-            ),
           ),
         );
       } else {
