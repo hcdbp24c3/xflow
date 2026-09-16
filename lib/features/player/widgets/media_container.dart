@@ -57,7 +57,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
   double _seekPosition = 0.0;
 
   // Single-tap delay to avoid conflict with double-tap
-  Timer? _tapTimer;
+  DateTime? _lastTapTime;
 
   @override
   void didUpdateWidget(TiktokMediaContainer oldWidget) {
@@ -84,11 +84,41 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
     _errorSubscription?.cancel();
     _completedSubscription?.cancel();
     _likeAnimController?.dispose();
-    _tapTimer?.cancel();
     super.dispose();
   }
 
-  void _handleDoubleTap(TapDownDetails details) {
+  void _handleTapDown(PointerDownEvent details) {
+    final now = DateTime.now();
+    final lastTap = _lastTapTime;
+    _lastTapTime = now;
+
+    // Double-tap detected (within 300ms)
+    if (lastTap != null && now.difference(lastTap).inMilliseconds < 300) {
+      _lastTapTime = null;
+      _handleDoubleTapAt(details.localPosition);
+      return;
+    }
+
+    // Single-tap: schedule after 300ms (cancel if double-tap arrives)
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      // Only fire if no newer tap came in
+      if (_lastTapTime == now) {
+        _lastTapTime = null;
+        final pool = ref.read(playerPoolProvider);
+        final instance = pool[widget.tweet.id];
+        if (instance != null) {
+          if (instance.player.state.playing) {
+            instance.player.pause();
+          } else {
+            instance.player.play();
+          }
+        }
+      }
+    });
+  }
+
+  void _handleDoubleTapAt(Offset localPosition) {
     final tweetId = widget.tweet.id;
     final tweet = ref.read(feedNotifierProvider).value?.tweets.firstWhere(
           (t) => t.id == tweetId,
@@ -100,7 +130,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
     ref.read(feedNotifierProvider.notifier).toggleLike(tweetId);
 
     setState(() {
-      _likePosition = details.localPosition;
+      _likePosition = localPosition;
       _showLikeHeart = true;
     });
 
@@ -207,7 +237,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
         children: [
           GestureDetector(
             onDoubleTapDown: (details) {
-              _handleDoubleTap(details);
+              _handleDoubleTapAt(details.localPosition);
             },
             behavior: HitTestBehavior.opaque,
             child: _buildImageGallery(),
@@ -474,15 +504,6 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
                                     ),
                                   ),
                                 ),
-                              // Text overlay on top (tested first, captures taps in its area)
-                              if (widget.overlayBuilder != null)
-                                Positioned.fill(
-                                  child: widget.overlayBuilder!(
-                                    context,
-                                    onFullscreen,
-                                    false,
-                                  ),
-                                ),
                             ],
                           );
                         },
@@ -496,38 +517,39 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
                   ),
                 ),
               ),
-              // Seek Bar above the text overlay
-              Positioned(
-                bottom: 220,
-                left: 0,
-                right: 0,
-                child: _buildSeekBar(instance),
-              ),
-              // Play/pause + double-tap gesture (above Video, covers top area)
+              // Play/pause + double-tap via Listener (instant, no delay)
+              // Covers top area only — text overlay and seek bar are above this
               Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
-                bottom: 260,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    _tapTimer?.cancel();
-                    _tapTimer = Timer(
-                        const Duration(milliseconds: 150), () {
-                      if (instance.player.state.playing) {
-                        instance.player.pause();
-                      } else {
-                        instance.player.play();
-                      }
-                    });
-                  },
-                  onDoubleTapDown: (details) {
-                    _tapTimer?.cancel();
-                    _handleDoubleTap(details);
+                bottom: 100,
+                child: Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: (details) {
+                    _handleTapDown(details);
                   },
                   child: const SizedBox.expand(),
                 ),
+              ),
+              // Text overlay — OUTSIDE Video widget so taps are not intercepted
+              if (widget.overlayBuilder != null)
+                Positioned(
+                  bottom: 100,
+                  left: 0,
+                  right: 0,
+                  child: widget.overlayBuilder!(
+                    context,
+                    onFullscreen,
+                    false,
+                  ),
+                ),
+              // Seek Bar at very bottom (TikTok-style thin line)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: _buildSeekBar(instance),
               ),
             ],
           );

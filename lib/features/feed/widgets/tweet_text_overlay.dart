@@ -222,6 +222,40 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
                       const Icon(Icons.check_circle,
                           color: Colors.blueAccent, size: 16),
                     ],
+                    if (!isSubscribed) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () {
+                          ref
+                              .read(subscriptionListProvider.notifier)
+                              .toggleSubscription(
+                                Subscription(
+                                  id: widget.tweet.userHandle,
+                                  screenName: widget.tweet.userHandle
+                                      .replaceFirst('@', ''),
+                                  name: widget.tweet.userHandle,
+                                  profileImageUrl: widget.tweet.userAvatarUrl,
+                                ),
+                              );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.blueAccent.withValues(alpha: 0.8),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Follow',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 if (dateStr.isNotEmpty)
@@ -236,34 +270,6 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
             ),
           ),
         ),
-        if (!isSubscribed)
-          GestureDetector(
-            onTap: () {
-              ref.read(subscriptionListProvider.notifier).toggleSubscription(
-                    Subscription(
-                      id: widget.tweet.userHandle,
-                      screenName: widget.tweet.userHandle.replaceFirst('@', ''),
-                      name: widget.tweet.userHandle,
-                      profileImageUrl: widget.tweet.userAvatarUrl,
-                    ),
-                  );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.blueAccent.withValues(alpha: 0.8),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text(
-                'Follow',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }
