@@ -74,7 +74,7 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
         // Action Buttons (Right Side)
         Positioned(
           right: rightPadding,
-          bottom: widget.isFullscreen ? 60 : 160,
+          bottom: widget.isFullscreen ? 60 : 80,
           child: _buildActionButtons(),
         ),
       ],

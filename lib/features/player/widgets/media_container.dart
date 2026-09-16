@@ -563,9 +563,9 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
         return LayoutBuilder(
           builder: (context, constraints) {
             final totalWidth = constraints.maxWidth;
-            const touchAreaHeight = 40.0;
-            const barHeight = 4.0;
-            const thumbSize = 18.0;
+            const touchAreaHeight = 24.0;
+            const barHeight = 2.5;
+            const thumbSize = 12.0;
 
             return Listener(
               behavior: HitTestBehavior.opaque,
