@@ -58,7 +58,7 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
                 stops: const [0.0, 0.3, 0.6, 1.0],
               ),
             ),
-            padding: EdgeInsets.fromLTRB(16, 100, 12, bottomPadding),
+            padding: EdgeInsets.fromLTRB(16, 60, 12, bottomPadding),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -73,7 +73,7 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
         // Action Buttons (Right Side)
         Positioned(
           right: rightPadding,
-          bottom: widget.isFullscreen ? 60 : 110,
+          bottom: widget.isFullscreen ? 60 : 70,
           child: _buildActionButtons(),
         ),
       ],

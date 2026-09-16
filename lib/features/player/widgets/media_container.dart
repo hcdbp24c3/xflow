@@ -451,24 +451,28 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
                           }
                           return Stack(
                             children: [
-                              GestureDetector(
-                                onTap: () {
-                                  // Delay single-tap to check if double-tap follows
-                                  _tapTimer?.cancel();
-                                  _tapTimer = Timer(
-                                      const Duration(milliseconds: 300), () {
-                                    if (instance.player.state.playing) {
-                                      instance.player.pause();
-                                    } else {
-                                      instance.player.play();
-                                    }
-                                  });
-                                },
-                                onDoubleTapDown: (details) {
-                                  _tapTimer?.cancel();
-                                  _handleDoubleTap(details);
-                                },
-                                behavior: HitTestBehavior.deferToChild,
+                              // GestureDetector at bottom of Stack (tested last)
+                              // Handles play/pause and double-tap in non-overlay areas
+                              Positioned.fill(
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () {
+                                    _tapTimer?.cancel();
+                                    _tapTimer = Timer(
+                                        const Duration(milliseconds: 300), () {
+                                      if (instance.player.state.playing) {
+                                        instance.player.pause();
+                                      } else {
+                                        instance.player.play();
+                                      }
+                                    });
+                                  },
+                                  onDoubleTapDown: (details) {
+                                    _tapTimer?.cancel();
+                                    _handleDoubleTap(details);
+                                  },
+                                  child: const SizedBox.expand(),
+                                ),
                               ),
                               // Double-tap heart overlay
                               if (_showLikeHeart && _likePosition != null)
@@ -493,6 +497,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
                                     ),
                                   ),
                                 ),
+                              // Text overlay on top (tested first, captures taps in its area)
                               if (widget.overlayBuilder != null)
                                 Positioned.fill(
                                   child: widget.overlayBuilder!(
@@ -548,19 +553,20 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
             const barHeight = 4.0;
             const thumbSize = 18.0;
 
-            return GestureDetector(
-              onHorizontalDragStart: (details) {
+            return Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: (event) {
                 _isSeeking = true;
                 _seekPosition =
-                    (details.localPosition.dx / totalWidth).clamp(0.0, 1.0);
+                    (event.localPosition.dx / totalWidth).clamp(0.0, 1.0);
                 setState(() {});
               },
-              onHorizontalDragUpdate: (details) {
+              onPointerMove: (event) {
                 _seekPosition =
-                    (details.localPosition.dx / totalWidth).clamp(0.0, 1.0);
+                    (event.localPosition.dx / totalWidth).clamp(0.0, 1.0);
                 setState(() {});
               },
-              onHorizontalDragEnd: (details) {
+              onPointerUp: (event) {
                 final seekTo = Duration(
                   milliseconds:
                       (_seekPosition * duration.inMilliseconds).round(),
@@ -569,18 +575,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
                 _isSeeking = false;
                 setState(() {});
               },
-              onTapDown: (details) {
-                _isSeeking = true;
-                _seekPosition =
-                    (details.localPosition.dx / totalWidth).clamp(0.0, 1.0);
-                setState(() {});
-              },
-              onTapUp: (details) {
-                final seekTo = Duration(
-                  milliseconds:
-                      (_seekPosition * duration.inMilliseconds).round(),
-                );
-                instance.player.seek(seekTo);
+              onPointerCancel: (event) {
                 _isSeeking = false;
                 setState(() {});
               },
