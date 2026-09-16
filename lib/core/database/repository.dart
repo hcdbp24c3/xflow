@@ -241,6 +241,26 @@ class Repository {
       );
     }
     await batch.commit(noResult: true);
+
+    // Update stats for existing tweets (ignore doesn't update existing rows)
+    for (var tweet in tweets) {
+      if (tweet.favoriteCount > 0 ||
+          tweet.replyCount > 0 ||
+          tweet.retweetCount > 0 ||
+          tweet.viewCount > 0) {
+        await db.update(
+          tableCachedMedia,
+          {
+            'favorite_count': tweet.favoriteCount,
+            'reply_count': tweet.replyCount,
+            'retweet_count': tweet.retweetCount,
+            'view_count': tweet.viewCount,
+          },
+          where: 'id = ?',
+          whereArgs: [tweet.id],
+        );
+      }
+    }
   }
 
   static Future<List<Tweet>> getUnplayedCachedMedia(int limit,
