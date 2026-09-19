@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/models/tweet.dart';
 import '../../../core/navigation/navigation_provider.dart';
@@ -13,6 +12,7 @@ import '../../subscriptions/subscription_list_screen.dart';
 import '../feed_provider.dart';
 import '../bookmark_provider.dart';
 import '../tweet_detail_screen.dart';
+import 'in_app_webview.dart';
 
 class TweetTextOverlay extends ConsumerStatefulWidget {
   final Tweet tweet;
@@ -74,7 +74,7 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
         // Action Buttons (Right Side)
         Positioned(
           right: rightPadding,
-          bottom: widget.isFullscreen ? 60 : 80,
+          bottom: widget.isFullscreen ? 60 : 120,
           child: _buildActionButtons(),
         ),
       ],
@@ -338,19 +338,8 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
               decoration: TextDecoration.underline,
             ),
             recognizer: TapGestureRecognizer()
-              ..onTap = () async {
-                final uri = Uri.parse(cleanUrl);
-                try {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                } catch (_) {
-                  // Fallback: try with https if http fails
-                  if (!cleanUrl.startsWith('https')) {
-                    await launchUrl(
-                      Uri.parse('https$cleanUrl'),
-                      mode: LaunchMode.externalApplication,
-                    );
-                  }
-                }
+              ..onTap = () {
+                InAppWebViewScreen.open(context, cleanUrl);
               },
           ),
         );
