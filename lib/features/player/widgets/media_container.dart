@@ -52,12 +52,14 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
   Animation<double>? _likeScaleAnim;
   Animation<double>? _likeOpacityAnim;
 
-  // Seek bar state
-  bool _isSeeking = false;
-  double _seekPosition = 0.0;
-
   // Single-tap delay to avoid conflict with double-tap
   DateTime? _lastTapTime;
+
+  // Play/pause center icon
+  bool _isPlaying = false;
+  StreamSubscription<bool>? _playingSubscription;
+  bool _showCenterIcon = false;
+  AnimationController? _centerIconAnimController;
 
   @override
   void didUpdateWidget(TiktokMediaContainer oldWidget) {
@@ -83,7 +85,9 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
   void dispose() {
     _errorSubscription?.cancel();
     _completedSubscription?.cancel();
+    _playingSubscription?.cancel();
     _likeAnimController?.dispose();
+    _centerIconAnimController?.dispose();
     super.dispose();
   }
 
@@ -101,6 +105,8 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
       } else {
         instance.player.play();
       }
+      // Show center play/pause icon briefly
+      _showCenterIconBriefly();
     }
 
     // Double-tap detected (within 300ms) — also like
@@ -108,6 +114,22 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
       _lastTapTime = null;
       _handleDoubleTapAt(details.localPosition);
     }
+  }
+
+  void _showCenterIconBriefly() {
+    if (!mounted) return;
+    setState(() => _showCenterIcon = true);
+    _centerIconAnimController?.dispose();
+    _centerIconAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _centerIconAnimController!.addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
+        setState(() => _showCenterIcon = false);
+      }
+    });
+    _centerIconAnimController!.forward();
   }
 
   void _handleDoubleTapAt(Offset localPosition) {
@@ -296,6 +318,10 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
     _completedSubscription ??=
         instance.player.stream.completed.listen((completed) {
       if (completed) _handleCompleted();
+    });
+    _playingSubscription ??= instance.player.stream.playing.listen((playing) {
+      if (!mounted) return;
+      setState(() => _isPlaying = playing);
     });
 
     final settings = ref.watch(settingsProvider);
@@ -524,6 +550,29 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
                   child: const SizedBox.expand(),
                 ),
               ),
+              // Center play/pause icon (TikTok-style, shows briefly on toggle)
+              if (_showCenterIcon)
+                Positioned.fill(
+                  child: Center(
+                    child: AnimatedOpacity(
+                      opacity: _showCenterIcon ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: Colors.black45,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _isPlaying ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                          color: Colors.white,
+                          size: 48,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               // Text overlay — OUTSIDE Video widget so taps are not intercepted
               if (widget.overlayBuilder != null)
                 Positioned.fill(
@@ -548,11 +597,102 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
   }
 
   Widget _buildSeekBar(PlayerInstance instance) {
+    return _TiktokSeekBar(player: instance.player);
+  }
+
+  Widget _buildProgressBar(PlayerInstance instance) {
     return StreamBuilder<Duration>(
       stream: instance.player.stream.position,
       builder: (context, snapshot) {
         final position = snapshot.data ?? Duration.zero;
         final duration = instance.player.state.duration;
+
+        if (duration == Duration.zero) return const SizedBox.shrink();
+
+        final progress = position.inMilliseconds / duration.inMilliseconds;
+
+        return Container(
+          height: 2,
+          width: double.infinity,
+          color: Colors.white12,
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: progress.clamp(0.0, 1.0),
+            child: Container(color: Colors.white),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildImageGallery() {
+    if (widget.tweet.mediaUrls.length == 1) {
+      return SizedBox.expand(
+        child: Center(
+          child: CachedNetworkImage(
+            cacheManager: CustomMediaCacheManager.getInstance(),
+            imageUrl: widget.tweet.mediaUrls.first,
+            fit: BoxFit.contain,
+            placeholder: (context, url) =>
+                const Center(child: CircularProgressIndicator()),
+            errorWidget: (context, url, error) => const Icon(Icons.error),
+          ),
+        ),
+      );
+    }
+
+    return PageView.builder(
+      scrollDirection: Axis.horizontal,
+      itemCount: widget.tweet.mediaUrls.length,
+      onPageChanged: (index) {
+        setState(() {
+          _imageIndex = index;
+        });
+      },
+      itemBuilder: (context, index) {
+        return SizedBox.expand(
+          child: Center(
+            child: CachedNetworkImage(
+              cacheManager: CustomMediaCacheManager.getInstance(),
+              imageUrl: widget.tweet.mediaUrls[index],
+              fit: BoxFit.contain,
+              placeholder: (context, url) =>
+                  const Center(child: CircularProgressIndicator()),
+              errorWidget: (context, url, error) => const Icon(Icons.error),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Standalone seek bar widget — rebuilds only itself, not the parent Stack.
+class _TiktokSeekBar extends StatefulWidget {
+  final Player player;
+  const _TiktokSeekBar({required this.player});
+
+  @override
+  State<_TiktokSeekBar> createState() => _TiktokSeekBarState();
+}
+
+class _TiktokSeekBarState extends State<_TiktokSeekBar> {
+  bool _isSeeking = false;
+  double _seekPosition = 0.0;
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Duration>(
+      stream: widget.player.stream.position,
+      builder: (context, snapshot) {
+        final position = snapshot.data ?? Duration.zero;
+        final duration = widget.player.state.duration;
 
         if (duration == Duration.zero) return const SizedBox.shrink();
 
@@ -570,28 +710,28 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
             return Listener(
               behavior: HitTestBehavior.opaque,
               onPointerDown: (event) {
-                _isSeeking = true;
-                _seekPosition =
-                    (event.localPosition.dx / totalWidth).clamp(0.0, 1.0);
-                setState(() {});
+                setState(() {
+                  _isSeeking = true;
+                  _seekPosition =
+                      (event.localPosition.dx / totalWidth).clamp(0.0, 1.0);
+                });
               },
               onPointerMove: (event) {
-                _seekPosition =
-                    (event.localPosition.dx / totalWidth).clamp(0.0, 1.0);
-                setState(() {});
+                setState(() {
+                  _seekPosition =
+                      (event.localPosition.dx / totalWidth).clamp(0.0, 1.0);
+                });
               },
               onPointerUp: (event) {
                 final seekTo = Duration(
                   milliseconds:
                       (_seekPosition * duration.inMilliseconds).round(),
                 );
-                instance.player.seek(seekTo);
-                _isSeeking = false;
-                setState(() {});
+                widget.player.seek(seekTo);
+                setState(() => _isSeeking = false);
               },
               onPointerCancel: (event) {
-                _isSeeking = false;
-                setState(() {});
+                setState(() => _isSeeking = false);
               },
               child: SizedBox(
                 height: touchAreaHeight,
@@ -665,78 +805,6 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
               ),
             );
           },
-        );
-      },
-    );
-  }
-
-  String _formatDuration(Duration d) {
-    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
-  }
-
-  Widget _buildProgressBar(PlayerInstance instance) {
-    return StreamBuilder<Duration>(
-      stream: instance.player.stream.position,
-      builder: (context, snapshot) {
-        final position = snapshot.data ?? Duration.zero;
-        final duration = instance.player.state.duration;
-
-        if (duration == Duration.zero) return const SizedBox.shrink();
-
-        final progress = position.inMilliseconds / duration.inMilliseconds;
-
-        return Container(
-          height: 2,
-          width: double.infinity,
-          color: Colors.white12,
-          child: FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: progress.clamp(0.0, 1.0),
-            child: Container(color: Colors.white),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildImageGallery() {
-    if (widget.tweet.mediaUrls.length == 1) {
-      return SizedBox.expand(
-        child: Center(
-          child: CachedNetworkImage(
-            cacheManager: CustomMediaCacheManager.getInstance(),
-            imageUrl: widget.tweet.mediaUrls.first,
-            fit: BoxFit.contain,
-            placeholder: (context, url) =>
-                const Center(child: CircularProgressIndicator()),
-            errorWidget: (context, url, error) => const Icon(Icons.error),
-          ),
-        ),
-      );
-    }
-
-    return PageView.builder(
-      scrollDirection: Axis.horizontal,
-      itemCount: widget.tweet.mediaUrls.length,
-      onPageChanged: (index) {
-        setState(() {
-          _imageIndex = index;
-        });
-      },
-      itemBuilder: (context, index) {
-        return SizedBox.expand(
-          child: Center(
-            child: CachedNetworkImage(
-              cacheManager: CustomMediaCacheManager.getInstance(),
-              imageUrl: widget.tweet.mediaUrls[index],
-              fit: BoxFit.contain,
-              placeholder: (context, url) =>
-                  const Center(child: CircularProgressIndicator()),
-              errorWidget: (context, url, error) => const Icon(Icons.error),
-            ),
-          ),
         );
       },
     );
