@@ -52,21 +52,26 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
   Animation<double>? _likeScaleAnim;
   Animation<double>? _likeOpacityAnim;
 
-  // Single-tap vs double-tap detection
-  bool _isDoubleTap = false;
-  Timer? _tapTimer;
+  // Raw tap detection (no GestureDetector — avoids gesture arena conflict)
+  DateTime? _firstTapTime;
+  bool _isDoubleTapPending = false;
 
   // Play/pause center icon
   bool _isPlaying = false;
   StreamSubscription<bool>? _playingSubscription;
   bool _showCenterIcon = false;
   AnimationController? _centerIconAnimController;
+  bool _hasAutoPlayed = false;
 
   @override
   void didUpdateWidget(TiktokMediaContainer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!oldWidget.isVisible && widget.isVisible) {
       _isAutoFullscreenDone = false;
+    }
+    // Reset auto-play flag when tweet changes
+    if (oldWidget.tweet.id != widget.tweet.id) {
+      _hasAutoPlayed = false;
     }
     // Move play/pause out of build() to avoid side effects during rebuild
     if (oldWidget.isVisible != widget.isVisible) {
@@ -87,20 +92,52 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
     _errorSubscription?.cancel();
     _completedSubscription?.cancel();
     _playingSubscription?.cancel();
-    _tapTimer?.cancel();
     _likeAnimController?.dispose();
     _centerIconAnimController?.dispose();
     super.dispose();
   }
 
-  void _onSingleTap() {
-    // Delay play/pause to allow double-tap detection
-    _tapTimer?.cancel();
-    _tapTimer = Timer(const Duration(milliseconds: 250), () {
-      if (!mounted || _isDoubleTap) {
-        _isDoubleTap = false;
-        return;
-      }
+  // --- Raw tap detection (no GestureDetector) ---
+  // Uses Listener to avoid gesture arena competition with overlay buttons.
+  // Skips taps on right side where action buttons live.
+
+  final double _buttonZoneWidth = 80; // Right-side button area to exclude
+
+  void _handlePointerDown(PointerDownEvent details) {
+    // Skip taps that land on overlay action buttons (right side)
+    final screenW = MediaQuery.of(context).size.width;
+    if (details.localPosition.dx > screenW - _buttonZoneWidth) return;
+
+    final now = DateTime.now();
+    final firstTime = _firstTapTime;
+
+    if (firstTime != null && now.difference(firstTime).inMilliseconds < 300) {
+      // Double tap detected on second tap down
+      _firstTapTime = null;
+      _isDoubleTapPending = true;
+      _handleDoubleTapAt(details.localPosition);
+    } else {
+      _firstTapTime = now;
+      _isDoubleTapPending = false;
+    }
+  }
+
+  void _handlePointerUp(PointerUpEvent details) {
+    // Skip taps that land on overlay action buttons (right side)
+    final screenW = MediaQuery.of(context).size.width;
+    if (details.localPosition.dx > screenW - _buttonZoneWidth) {
+      _firstTapTime = null;
+      _isDoubleTapPending = false;
+      return;
+    }
+
+    if (_isDoubleTapPending) {
+      _isDoubleTapPending = false;
+      return;
+    }
+    if (_firstTapTime != null) {
+      _firstTapTime = null;
+      // Instant play/pause — no delay
       final pool = ref.read(playerPoolProvider);
       final instance = pool[widget.tweet.id];
       if (instance != null) {
@@ -111,13 +148,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
         }
         _showCenterIconBriefly();
       }
-    });
-  }
-
-  void _onDoubleTapDown(TapDownDetails details) {
-    _tapTimer?.cancel();
-    _isDoubleTap = true;
-    _handleDoubleTapAt(details.localPosition);
+    }
   }
 
   void _showCenterIconBriefly() {
@@ -327,6 +358,14 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
       if (!mounted) return;
       setState(() => _isPlaying = playing);
     });
+
+    // Auto-play on first build when visible (warmup opens with play:false)
+    if (widget.isVisible && !instance.player.state.playing && !_hasAutoPlayed) {
+      _hasAutoPlayed = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) instance.player.play();
+      });
+    }
 
     final settings = ref.watch(settingsProvider);
     return PopScope(
@@ -549,17 +588,17 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
                   ),
                 ),
               ),
-              // Play/pause + double-tap via GestureDetector (TikTok-style)
-              // Single tap → play/pause. Double tap → like. No conflict.
+              // Play/pause + double-tap via Listener (raw pointer events)
+              // No gesture arena competition — overlay buttons work independently.
               Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
                 bottom: 100,
-                child: GestureDetector(
+                child: Listener(
                   behavior: HitTestBehavior.translucent,
-                  onTap: _onSingleTap,
-                  onDoubleTapDown: _onDoubleTapDown,
+                  onPointerDown: _handlePointerDown,
+                  onPointerUp: _handlePointerUp,
                   child: const SizedBox.expand(),
                 ),
               ),

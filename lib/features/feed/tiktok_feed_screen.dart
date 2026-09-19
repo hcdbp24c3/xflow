@@ -29,6 +29,10 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
   void initState() {
     super.initState();
     _pageController.addListener(_handleScroll);
+    // Initial pool warmup for first few videos
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _managePool();
+    });
   }
 
   @override
@@ -175,7 +179,6 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
           }
           return _buildNoItemsState();
         }
-        _managePool();
         return Stack(
           children: [
             PageView.builder(
