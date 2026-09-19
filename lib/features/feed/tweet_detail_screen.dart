@@ -13,7 +13,7 @@ final tweetDetailProvider =
   return client.fetchTweetDetail(tweetId);
 });
 
-class TweetRepliesSheet extends ConsumerWidget {
+class TweetRepliesSheet extends ConsumerStatefulWidget {
   final Tweet tweet;
 
   const TweetRepliesSheet({super.key, required this.tweet});
@@ -28,8 +28,56 @@ class TweetRepliesSheet extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final repliesAsync = ref.watch(tweetDetailProvider(tweet.id));
+  ConsumerState<TweetRepliesSheet> createState() => _TweetRepliesSheetState();
+}
+
+class _TweetRepliesSheetState extends ConsumerState<TweetRepliesSheet> {
+  final TextEditingController _replyController = TextEditingController();
+  bool _isPosting = false;
+
+  @override
+  void dispose() {
+    _replyController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _postReply() async {
+    final text = _replyController.text.trim();
+    if (text.isEmpty || _isPosting) return;
+
+    setState(() => _isPosting = true);
+    try {
+      final success = await ref
+          .read(feedNotifierProvider.notifier)
+          .postReply(widget.tweet.id, text);
+      if (success && mounted) {
+        _replyController.clear();
+        // Refresh replies
+        ref.invalidate(tweetDetailProvider(widget.tweet.id));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã đăng bình luận'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể đăng bình luận'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPosting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final repliesAsync = ref.watch(tweetDetailProvider(widget.tweet.id));
 
     return DraggableScrollableSheet(
       initialChildSize: 0.7,
@@ -62,7 +110,7 @@ class TweetRepliesSheet extends ConsumerWidget {
                 child: Row(
                   children: [
                     Text(
-                      'Replies',
+                      'Bình luận',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -81,7 +129,7 @@ class TweetRepliesSheet extends ConsumerWidget {
                 child: repliesAsync.when(
                   data: (response) {
                     final replies =
-                        response.tweets.where((t) => t.id != tweet.id).toList();
+                        response.tweets.where((t) => t.id != widget.tweet.id).toList();
                     if (replies.isEmpty) {
                       return ListView(
                         controller: scrollController,
@@ -89,7 +137,7 @@ class TweetRepliesSheet extends ConsumerWidget {
                           Padding(
                             padding: EdgeInsets.all(48.0),
                             child: Center(
-                              child: Text('No replies yet'),
+                              child: Text('Chưa có bình luận nào'),
                             ),
                           ),
                         ],
@@ -109,9 +157,71 @@ class TweetRepliesSheet extends ConsumerWidget {
                   error: (e, st) => Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
-                      child: Text('Error loading replies: $e'),
+                      child: Text('Lỗi tải bình luận: $e'),
                     ),
                   ),
+                ),
+              ),
+              // Comment input
+              Container(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 8,
+                  top: 8,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 8,
+                ),
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _replyController,
+                        maxLines: null,
+                        textInputAction: TextInputAction.newline,
+                        decoration: InputDecoration(
+                          hintText: 'Viết bình luận...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            borderSide: BorderSide.none,
+                          ),
+                          filled: true,
+                          fillColor: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest
+                              .withValues(alpha: 0.5),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          hintStyle: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.5),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: _isPosting ? null : _postReply,
+                      icon: _isPosting
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              Icons.send,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                    ),
+                  ],
                 ),
               ),
             ],

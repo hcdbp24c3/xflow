@@ -13,6 +13,7 @@ class Tweet {
   final int favoriteCount;
   final int replyCount;
   final int retweetCount;
+  final bool isRetweeted;
   final int viewCount;
   final bool isBookmarked;
 
@@ -31,6 +32,7 @@ class Tweet {
     this.favoriteCount = 0,
     this.replyCount = 0,
     this.retweetCount = 0,
+    this.isRetweeted = false,
     this.viewCount = 0,
     this.isBookmarked = false,
   });
@@ -55,6 +57,7 @@ class Tweet {
     int? favoriteCount,
     int? replyCount,
     int? retweetCount,
+    bool? isRetweeted,
     int? viewCount,
     bool? isBookmarked,
   }) {
@@ -73,6 +76,7 @@ class Tweet {
       favoriteCount: favoriteCount ?? this.favoriteCount,
       replyCount: replyCount ?? this.replyCount,
       retweetCount: retweetCount ?? this.retweetCount,
+      isRetweeted: isRetweeted ?? this.isRetweeted,
       viewCount: viewCount ?? this.viewCount,
       isBookmarked: isBookmarked ?? this.isBookmarked,
     );

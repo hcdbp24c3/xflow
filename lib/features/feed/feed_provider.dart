@@ -475,6 +475,66 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
           'XFLOW: Successfully toggled like for $tweetId to $newIsLiked');
     }
   }
+
+  Future<void> toggleRetweet(String tweetId) async {
+    final currentState = state.value;
+    if (currentState == null) return;
+
+    final tweetIndex = currentState.tweets.indexWhere((t) => t.id == tweetId);
+    if (tweetIndex == -1) return;
+
+    final tweet = currentState.tweets[tweetIndex];
+    final newIsRetweeted = !tweet.isRetweeted;
+    final newRetweetCount = tweet.retweetCount + (newIsRetweeted ? 1 : -1);
+
+    // Optimistic UI Update
+    final updatedTweet = tweet.copyWith(
+      isRetweeted: newIsRetweeted,
+      retweetCount: newRetweetCount >= 0 ? newRetweetCount : 0,
+    );
+
+    final updatedTweets = List<Tweet>.from(currentState.tweets);
+    updatedTweets[tweetIndex] = updatedTweet;
+    state = AsyncData(currentState.copyWith(tweets: updatedTweets));
+
+    // API Call
+    final client = ref.read(twitterClientProvider);
+    final success = newIsRetweeted
+        ? await client.retweetTweet(tweetId)
+        : await client.unretweetTweet(tweetId);
+
+    if (!success) {
+      // Revert on failure
+      final currentAsync = ref.read(feedNotifierProvider);
+      if (currentAsync.hasValue) {
+        final latestState = currentAsync.value!;
+        final idx = latestState.tweets.indexWhere((t) => t.id == tweetId);
+        if (idx != -1) {
+          final revertedTweets = List<Tweet>.from(latestState.tweets);
+          revertedTweets[idx] = tweet;
+          state = AsyncData(latestState.copyWith(tweets: revertedTweets));
+        }
+      }
+      AppLogger.log('XFLOW: Failed to toggle retweet for $tweetId, reverted.');
+    } else {
+      AppLogger.log(
+          'XFLOW: Successfully toggled retweet for $tweetId to $newIsRetweeted');
+    }
+  }
+
+  Future<bool> postReply(String tweetId, String text) async {
+    final client = ref.read(twitterClientProvider);
+    final success = await client.postTweet(text, inReplyToTweetId: tweetId);
+
+    if (success) {
+      AppLogger.log('XFLOW: Successfully posted reply to $tweetId');
+      // Refresh the tweet detail to show new reply
+      // The caller should handle UI refresh
+    } else {
+      AppLogger.log('XFLOW: Failed to post reply to $tweetId');
+    }
+    return success;
+  }
 }
 
 final feedNotifierProvider =

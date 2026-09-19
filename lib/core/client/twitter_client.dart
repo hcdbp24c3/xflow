@@ -29,6 +29,12 @@ class TwitterClient {
       '/graphql/lI07N6Otwv1PhnEgXILM7A/FavoriteTweet';
   static const String graphqlUnfavoriteTweetUriPath =
       '/graphql/ZYKSe-w7KEslx3JhSIk5LA/UnfavoriteTweet';
+  static const String graphqlCreateRetweetUriPath =
+      '/graphql/iQtK4dl5hBmXewYZuEOKVw/CreateRetweet';
+  static const String graphqlDeleteRetweetUriPath =
+      '/graphql/k3027HdkVqFO48dG6zWTFQ/DeleteRetweet';
+  static const String graphqlCreateTweetUriPath =
+      '/graphql/lZ0GCEojmQc2lLh8wKpKjA/CreateTweet';
   static const String graphqlTweetDetailUriPath =
       '/graphql/tCivIG3o9ls-9cLxTsdxZQ/TweetDetail';
 
@@ -913,6 +919,99 @@ class TwitterClient {
     }
   }
 
+  Future<bool> retweetTweet(String tweetId) async {
+    final uri = Uri.https('x.com', '/i/api$graphqlCreateRetweetUriPath');
+    final variables = {"source_tweet_id": tweetId};
+
+    try {
+      AppLogger.log('Retweeting tweet: $tweetId');
+      await _waitForTurn();
+      final response = await TwitterAccount.fetch(uri,
+          method: 'POST',
+          body: jsonEncode(
+              {"variables": variables, "queryId": "iQtK4dl5hBmXewYZuEOKVw"}));
+
+      return response.statusCode == 200;
+    } catch (e) {
+      AppLogger.log('Error retweeting tweet: $e');
+      return false;
+    } finally {
+      _releaseTurn();
+    }
+  }
+
+  Future<bool> unretweetTweet(String tweetId) async {
+    final uri = Uri.https('x.com', '/i/api$graphqlDeleteRetweetUriPath');
+    final variables = {"source_tweet_id": tweetId};
+
+    try {
+      AppLogger.log('Unretweeting tweet: $tweetId');
+      await _waitForTurn();
+      final response = await TwitterAccount.fetch(uri,
+          method: 'POST',
+          body: jsonEncode(
+              {"variables": variables, "queryId": "k3027HdkVqFO48dG6zWTFQ"}));
+
+      return response.statusCode == 200;
+    } catch (e) {
+      AppLogger.log('Error unretweeting tweet: $e');
+      return false;
+    } finally {
+      _releaseTurn();
+    }
+  }
+
+  Future<bool> postTweet(String text, {String? inReplyToTweetId}) async {
+    final uri = Uri.https('x.com', '/i/api$graphqlCreateTweetUriPath');
+    final variables = <String, dynamic>{
+      "tweet_text": text,
+      "dark_request": false,
+      "media": {"media_entities": [], "possibly_sensitive": false},
+    };
+    if (inReplyToTweetId != null) {
+      variables["reply"] = {"in_reply_to_tweet_id": inReplyToTweetId, "exclude_reply_user_ids": []};
+    }
+
+    try {
+      AppLogger.log('Posting tweet: $text');
+      await _waitForTurn();
+      final response = await TwitterAccount.fetch(uri,
+          method: 'POST',
+          body: jsonEncode(
+              {"variables": variables, "queryId": "lZ0GCEojmQc2lLh8wKpKjA", "features": {
+                "communities_web_enable_tweet_community_results_fetch": true,
+                "c9s_tweet_anatomy_moderator_badge_enabled": true,
+                "responsive_web_edit_tweet_api_enabled": true,
+                "graphql_is_translatable_rweb_tweet_is_translatable_enabled": true,
+                "view_counts_everywhere_api_enabled": true,
+                "longform_notetweets_consumption_enabled": true,
+                "responsive_web_twitter_article_tweet_consumption_enabled": true,
+                "tweet_awards_web_tipping_enabled": false,
+                "creator_subscriptions_quote_tweet_preview_enabled": false,
+                "longform_notetweets_rich_text_read_enabled": true,
+                "longform_notetweets_inline_media_enabled": true,
+                "articles_preview_enabled": true,
+                "rweb_video_timestamps_enabled": true,
+                "rweb_tipjar_consumption_enabled": true,
+                "responsive_web_graphql_exclude_directive_enabled": true,
+                "verified_phone_label_enabled": false,
+                "freedom_of_speech_not_reach_fetch_enabled": true,
+                "standardized_nudges_misinfo": true,
+                "tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled": true,
+                "responsive_web_graphql_skip_user_profile_image_extensions_enabled": false,
+                "responsive_web_graphql_timeline_navigation_enabled": true,
+                "responsive_web_enhance_cards_enabled": false,
+              }}));
+
+      return response.statusCode == 200;
+    } catch (e) {
+      AppLogger.log('Error posting tweet: $e');
+      return false;
+    } finally {
+      _releaseTurn();
+    }
+  }
+
   Future<TweetResponse> fetchTweetDetail(String focalTweetId,
       {String? cursor}) async {
     final variables = {
@@ -1399,6 +1498,7 @@ class TwitterClient {
         favoriteCount: legacy['favorite_count'] ?? 0,
         replyCount: legacy['reply_count'] ?? 0,
         retweetCount: legacy['retweet_count'] ?? 0,
+        isRetweeted: legacy['retweeted'] ?? false,
         viewCount: int.tryParse((tweetResult['views']?['count'] ?? legacy['views']?['count'] ?? '0').toString()) ?? 0,
       ));
     } catch (e) {

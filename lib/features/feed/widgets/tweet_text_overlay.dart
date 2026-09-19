@@ -82,32 +82,50 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
   }
 
   Widget _buildActionButtons() {
+    // Watch live tweet state so buttons update immediately after toggle
+    final liveTweet = ref.watch(feedNotifierProvider.select(
+      (s) => s.value?.tweets.firstWhere(
+            (t) => t.id == widget.tweet.id,
+            orElse: () => widget.tweet,
+          ),
+    ));
+    final tweet = liveTweet ?? widget.tweet;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         _ActionButton(
-          icon: widget.tweet.isLiked ? Icons.favorite : Icons.favorite_border,
-          color: widget.tweet.isLiked ? Colors.red : Colors.white,
-          label: _formatCount(widget.tweet.favoriteCount),
+          icon: tweet.isLiked ? Icons.favorite : Icons.favorite_border,
+          color: tweet.isLiked ? Colors.red : Colors.white,
+          label: _formatCount(tweet.favoriteCount),
           onTap: () {
-            ref.read(feedNotifierProvider.notifier).toggleLike(widget.tweet.id);
+            ref.read(feedNotifierProvider.notifier).toggleLike(tweet.id);
           },
         ),
         const SizedBox(height: 16),
         _ActionButton(
           icon: Icons.chat_bubble_outline,
-          label: _formatCount(widget.tweet.replyCount),
+          label: _formatCount(tweet.replyCount),
           onTap: () {
-            TweetRepliesSheet.show(context, widget.tweet);
+            TweetRepliesSheet.show(context, tweet);
           },
         ),
         const SizedBox(height: 16),
         _ActionButton(
-          icon: widget.tweet.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-          color: widget.tweet.isBookmarked ? Colors.amber : Colors.white,
+          icon: tweet.isRetweeted ? Icons.repeat : Icons.repeat,
+          color: tweet.isRetweeted ? Colors.greenAccent : Colors.white,
+          label: _formatCount(tweet.retweetCount),
+          onTap: () {
+            ref.read(feedNotifierProvider.notifier).toggleRetweet(tweet.id);
+          },
+        ),
+        const SizedBox(height: 16),
+        _ActionButton(
+          icon: tweet.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+          color: tweet.isBookmarked ? Colors.amber : Colors.white,
           label: "Lưu",
           onTap: () {
-            ref.read(bookmarkListProvider.notifier).toggleBookmark(widget.tweet);
+            ref.read(bookmarkListProvider.notifier).toggleBookmark(tweet);
           },
         ),
         const SizedBox(height: 16),
@@ -115,22 +133,12 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
           icon: Icons.share_outlined,
           label: "Chia sẻ",
           onTap: () async {
-            final handle = widget.tweet.userHandle.replaceFirst('@', '');
-            final url = 'https://x.com/$handle/status/${widget.tweet.id}';
+            final handle = tweet.userHandle.replaceFirst('@', '');
+            final url = 'https://x.com/$handle/status/${tweet.id}';
             await Share.share(url, subject: 'Xem tweet này');
           },
         ),
-        const SizedBox(height: 16),
-        _ActionButton(
-          icon: Icons.replay,
-          label: _formatCount(widget.tweet.retweetCount),
-        ),
-        const SizedBox(height: 16),
-        _ActionButton(
-          icon: Icons.visibility_outlined,
-          label: _formatCount(widget.tweet.viewCount),
-        ),
-        if (widget.onFullscreen != null && widget.tweet.isVideo) ...[
+        if (widget.onFullscreen != null && tweet.isVideo) ...[
           const SizedBox(height: 16),
           _ActionButton(
             icon:
