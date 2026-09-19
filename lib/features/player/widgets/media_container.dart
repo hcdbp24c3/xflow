@@ -52,8 +52,9 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
   Animation<double>? _likeScaleAnim;
   Animation<double>? _likeOpacityAnim;
 
-  // Single-tap delay to avoid conflict with double-tap
-  DateTime? _lastTapTime;
+  // Single-tap vs double-tap detection
+  bool _isDoubleTap = false;
+  Timer? _tapTimer;
 
   // Play/pause center icon
   bool _isPlaying = false;
@@ -86,34 +87,37 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
     _errorSubscription?.cancel();
     _completedSubscription?.cancel();
     _playingSubscription?.cancel();
+    _tapTimer?.cancel();
     _likeAnimController?.dispose();
     _centerIconAnimController?.dispose();
     super.dispose();
   }
 
-  void _handleTapDown(PointerDownEvent details) {
-    final now = DateTime.now();
-    final lastTap = _lastTapTime;
-    _lastTapTime = now;
-
-    // Instant play/pause — no delay
-    final pool = ref.read(playerPoolProvider);
-    final instance = pool[widget.tweet.id];
-    if (instance != null) {
-      if (instance.player.state.playing) {
-        instance.player.pause();
-      } else {
-        instance.player.play();
+  void _onSingleTap() {
+    // Delay play/pause to allow double-tap detection
+    _tapTimer?.cancel();
+    _tapTimer = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted || _isDoubleTap) {
+        _isDoubleTap = false;
+        return;
       }
-      // Show center play/pause icon briefly
-      _showCenterIconBriefly();
-    }
+      final pool = ref.read(playerPoolProvider);
+      final instance = pool[widget.tweet.id];
+      if (instance != null) {
+        if (instance.player.state.playing) {
+          instance.player.pause();
+        } else {
+          instance.player.play();
+        }
+        _showCenterIconBriefly();
+      }
+    });
+  }
 
-    // Double-tap detected (within 300ms) — also like
-    if (lastTap != null && now.difference(lastTap).inMilliseconds < 300) {
-      _lastTapTime = null;
-      _handleDoubleTapAt(details.localPosition);
-    }
+  void _onDoubleTapDown(TapDownDetails details) {
+    _tapTimer?.cancel();
+    _isDoubleTap = true;
+    _handleDoubleTapAt(details.localPosition);
   }
 
   void _showCenterIconBriefly() {
@@ -412,6 +416,16 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
 
           return Stack(
             children: [
+              // Thumbnail placeholder — shows while video is loading
+              if (widget.tweet.thumbnailUrl != null)
+                Positioned.fill(
+                  child: CachedNetworkImage(
+                    imageUrl: widget.tweet.thumbnailUrl!,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => const SizedBox.shrink(),
+                    errorWidget: (context, url, error) => const SizedBox.shrink(),
+                  ),
+                ),
               Positioned.fill(
                 child: Center(
                   child: RepaintBoundary(
@@ -535,18 +549,17 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
                   ),
                 ),
               ),
-              // Play/pause + double-tap via Listener (instant, no delay)
-              // Covers top area only — text overlay and seek bar are above this
+              // Play/pause + double-tap via GestureDetector (TikTok-style)
+              // Single tap → play/pause. Double tap → like. No conflict.
               Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
                 bottom: 100,
-                child: Listener(
+                child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
-                  onPointerDown: (details) {
-                    _handleTapDown(details);
-                  },
+                  onTap: _onSingleTap,
+                  onDoubleTapDown: _onDoubleTapDown,
                   child: const SizedBox.expand(),
                 ),
               ),
