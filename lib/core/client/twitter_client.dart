@@ -18,9 +18,9 @@ class TweetResponse {
 
 class TwitterClient {
   static const String graphqlSearchTimelineUriPath =
-      '/graphql/R0u1RWRf748KzyGBXvOYRA/SearchTimeline';
+      '/graphql/hz_94eVAtrtQo_vO3my7Rw/SearchTimeline';
   static const String _legacyGraphqlSearchTimelineUriPath =
-      '/graphql/Bcw3RzK-PatNAmbnw54hFw/SearchTimeline';
+      '/graphql/SpDsqmz6FfYESd1e7TPcAw/SearchTimeline';
   static const String graphqlUserByScreenNameUriPath =
       '/graphql/oUZZZ8Oddwxs8Cd3iW3UEA/UserByScreenName';
   static const String graphqlUserTweetsUriPath =
@@ -30,11 +30,11 @@ class TwitterClient {
   static const String graphqlUnfavoriteTweetUriPath =
       '/graphql/ZYKSe-w7KEslx3JhSIk5LA/UnfavoriteTweet';
   static const String graphqlCreateRetweetUriPath =
-      '/graphql/iQtK4dl5hBmXewYZuEOKVw/CreateRetweet';
+      '/graphql/mbRO74GrOvSfRcJnlMapnQ/CreateRetweet';
   static const String graphqlDeleteRetweetUriPath =
-      '/graphql/k3027HdkVqFO48dG6zWTFQ/DeleteRetweet';
+      '/graphql/ZyZigVsNiFO6v1dEks1eWg/DeleteRetweet';
   static const String graphqlCreateTweetUriPath =
-      '/graphql/lZ0GCEojmQc2lLh8wKpKjA/CreateTweet';
+      '/graphql/hIL9XdleMYEtVXOZVbr8Bg/CreateTweet';
   static const String graphqlTweetDetailUriPath =
       '/graphql/tCivIG3o9ls-9cLxTsdxZQ/TweetDetail';
 
@@ -929,7 +929,7 @@ class TwitterClient {
       final response = await TwitterAccount.fetch(uri,
           method: 'POST',
           body: jsonEncode(
-              {"variables": variables, "queryId": "iQtK4dl5hBmXewYZuEOKVw"}));
+              {"variables": variables, "queryId": "mbRO74GrOvSfRcJnlMapnQ"}));
 
       return response.statusCode == 200;
     } catch (e) {
@@ -950,7 +950,7 @@ class TwitterClient {
       final response = await TwitterAccount.fetch(uri,
           method: 'POST',
           body: jsonEncode(
-              {"variables": variables, "queryId": "k3027HdkVqFO48dG6zWTFQ"}));
+              {"variables": variables, "queryId": "ZyZigVsNiFO6v1dEks1eWg"}));
 
       return response.statusCode == 200;
     } catch (e) {
@@ -978,7 +978,7 @@ class TwitterClient {
       final response = await TwitterAccount.fetch(uri,
           method: 'POST',
           body: jsonEncode(
-              {"variables": variables, "queryId": "lZ0GCEojmQc2lLh8wKpKjA", "features": {
+              {"variables": variables, "queryId": "hIL9XdleMYEtVXOZVbr8Bg", "features": {
                 "communities_web_enable_tweet_community_results_fetch": true,
                 "c9s_tweet_anatomy_moderator_badge_enabled": true,
                 "responsive_web_edit_tweet_api_enabled": true,

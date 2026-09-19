@@ -138,10 +138,10 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
           (t) => t.id == tweetId,
           orElse: () => widget.tweet,
         );
-    // Only like, don't toggle (skip if already liked)
-    if (tweet != null && tweet.isLiked) return;
-
-    ref.read(feedNotifierProvider.notifier).toggleLike(tweetId);
+    // Only toggle like if NOT already liked (but always show hearts — TikTok style)
+    if (tweet == null || !tweet.isLiked) {
+      ref.read(feedNotifierProvider.notifier).toggleLike(tweetId);
+    }
 
     setState(() {
       _likePosition = localPosition;
