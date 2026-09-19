@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/models/tweet.dart';
 import '../../../core/navigation/navigation_provider.dart';
 import '../../../core/utils/app_logger.dart';
@@ -12,7 +13,6 @@ import '../../subscriptions/subscription_list_screen.dart';
 import '../feed_provider.dart';
 import '../bookmark_provider.dart';
 import '../tweet_detail_screen.dart';
-import 'in_app_webview.dart';
 
 class TweetTextOverlay extends ConsumerStatefulWidget {
   final Tweet tweet;
@@ -338,8 +338,9 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
               decoration: TextDecoration.underline,
             ),
             recognizer: TapGestureRecognizer()
-              ..onTap = () {
-                InAppWebViewScreen.open(context, cleanUrl);
+              ..onTap = () async {
+                final uri = Uri.parse(cleanUrl);
+                await launchUrl(uri, mode: LaunchMode.platformDefault);
               },
           ),
         );
