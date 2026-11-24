@@ -48,6 +48,15 @@ the APK it built. SHA-256 of the certificate:
 
 Without the secrets (a fork) the build falls back to the runner's debug key and says so in the log.
 
+## Links
+
+Tapping a link in a caption goes through `LinkRouter` (`core/link`): a profile or hashtag link of
+x.com / twitter.com opens that screen of the app, any other web page opens in the in-app browser
+(`ui/browser/InAppBrowserScreen`), and a link that is not http(s) (`mailto:`, `market:`,
+`intent:`, ...) is handed to the system. The in-app browser is a pushed screen, so the feed under
+it stops playing while it is open. Its WebView shares the app's cookies (x.com pages are signed
+in), gets no file or content access, allows no mixed content, and nothing is injected into pages.
+
 ## Talking to X (state of 2026-11-24)
 
 `x-client-transaction-id`, in this order; the log line of every request names the source

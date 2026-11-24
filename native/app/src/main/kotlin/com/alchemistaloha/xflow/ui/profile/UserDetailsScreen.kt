@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,8 +30,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
@@ -41,11 +40,9 @@ import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -61,8 +58,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -84,6 +79,8 @@ import com.alchemistaloha.xflow.ui.nav.NavigationStore
 import com.alchemistaloha.xflow.ui.nav.Navigator
 import com.alchemistaloha.xflow.ui.settings.SettingsScreen
 import com.alchemistaloha.xflow.ui.theme.AppColors
+import com.alchemistaloha.xflow.ui.theme.PressableScale
+import com.alchemistaloha.xflow.ui.theme.AppRadius
 import com.alchemistaloha.xflow.ui.theme.AppIconButton
 import com.alchemistaloha.xflow.ui.theme.AppTopBar
 import com.alchemistaloha.xflow.ui.theme.EmptyState
@@ -404,19 +401,31 @@ private fun SubscribeButton(profile: Subscription) {
             ),
         )
     }
-    val label = if (isSubscribed) "Subscribed" else "Subscribe"
-    val modifier = Modifier.semantics { contentDescription = label }
-    if (isSubscribed) {
-        OutlinedIconButton(
-            onClick = { onClick() },
-            modifier = modifier,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    // The same wording as the follow badge in the feeds: a filled accent pill to follow, an
+    // outlined one once following (tap it again to unfollow).
+    val label = if (isSubscribed) "Following" else "Follow"
+    val shape = RoundedCornerShape(AppRadius.xl)
+    PressableScale(onTap = { onClick() }, tooltip = label, pressedScale = 0.94f) {
+        Box(
+            Modifier
+                .defaultMinSize(minWidth = 92.dp, minHeight = 40.dp)
+                .then(
+                    if (isSubscribed) {
+                        Modifier.border(BorderStroke(1.dp, AppColors.textTertiary), shape)
+                    } else {
+                        Modifier.background(AppColors.accent, shape)
+                    },
+                )
+                .padding(horizontal = 18.dp),
+            contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(20.dp))
-        }
-    } else {
-        FilledTonalIconButton(onClick = { onClick() }, modifier = modifier) {
-            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+            Text(
+                label,
+                color = if (isSubscribed) AppColors.textPrimary else Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+            )
         }
     }
 }

@@ -2,17 +2,14 @@ package com.alchemistaloha.xflow.ui.feed
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,12 +18,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ModeComment
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
-import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Fullscreen
@@ -67,18 +64,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.alchemistaloha.xflow.core.feed.FollowBadge
+import com.alchemistaloha.xflow.core.feed.FollowBadgeLogic
 import com.alchemistaloha.xflow.core.model.Subscription
 import com.alchemistaloha.xflow.core.model.Tweet
 import com.alchemistaloha.xflow.core.player.CaptionSpan
 import com.alchemistaloha.xflow.core.player.formatCount
 import com.alchemistaloha.xflow.core.player.parseCaption
 import com.alchemistaloha.xflow.core.util.AppLogger
+import com.alchemistaloha.xflow.data.client.TwitterAccount
 import com.alchemistaloha.xflow.data.feed.BookmarkStore
 import com.alchemistaloha.xflow.data.subscriptions.SubscriptionListStore
+import com.alchemistaloha.xflow.ui.browser.openLink
 import com.alchemistaloha.xflow.ui.nav.NavigationStore
 import com.alchemistaloha.xflow.ui.theme.AppColors
-import com.alchemistaloha.xflow.ui.theme.AppRadius
 import com.alchemistaloha.xflow.ui.theme.PressableScale
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -101,14 +102,6 @@ internal fun shareTweet(context: Context, tweet: Tweet) {
         context.startActivity(Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     } catch (e: Exception) {
         AppLogger.log("XFLOW: Error sharing tweet: $e")
-    }
-}
-
-internal fun openUrl(context: Context, url: String) {
-    try {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    } catch (e: Exception) {
-        AppLogger.log("XFLOW: Error opening link: $e")
     }
 }
 
@@ -172,6 +165,11 @@ private fun ActionButtons(original: Tweet, onFullscreen: (() -> Unit)?, isFullsc
     var showReplies by remember { mutableStateOf(false) }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // A fullscreen video in landscape has no room for it above the buttons.
+        if (!isFullscreen) {
+            AuthorAvatarButton(tweet)
+            Spacer(Modifier.height(10.dp))
+        }
         ActionButton(
             icon = if (tweet.isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
             color = if (tweet.isLiked) AppColors.like else Color.White,
@@ -224,8 +222,6 @@ private fun ActionButtons(original: Tweet, onFullscreen: (() -> Unit)?, isFullsc
 
 @Composable
 private fun UserHeader(tweet: Tweet) {
-    val subscriptions by SubscriptionListStore.state.collectAsState()
-    val isSubscribed = subscriptions.isSubscribed(tweet.userHandle)
     val handle = tweet.userHandle.replaceFirst("@", "")
     val noRipple = remember { MutableInteractionSource() }
 
@@ -239,85 +235,148 @@ private fun UserHeader(tweet: Tweet) {
         }
     }
 
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(AppColors.surfaceHighest)
+    // The avatar and the follow badge live at the top of the action column.
+    Column {
+        Text(
+            tweet.userHandle,
+            modifier = Modifier
                 .clickable(interactionSource = noRipple, indication = null) { NavigationStore.selectUser(handle) },
-            contentAlignment = Alignment.Center,
-        ) {
-            val avatar = tweet.userAvatarUrlHighRes
-            if (avatar != null) {
-                AsyncImage(
-                    model = avatar,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                Icon(Icons.Rounded.Person, null, tint = AppColors.textSecondary, modifier = Modifier.size(20.dp))
+            style = TextStyle(
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                letterSpacing = (-0.1).sp,
+                shadow = TextShadow,
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (dateStr.isNotEmpty()) {
+            Text(
+                dateStr,
+                style = TextStyle(
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 11.5.sp,
+                    shadow = TextShadow,
+                ),
+            )
+        }
+    }
+}
+
+private val AvatarSize = 44.dp
+private val BadgeSize = 20.dp
+private val BadgeTouchSize = 40.dp
+
+/**
+ * The author's avatar at the top of the action column. Tapping it opens the profile. While the
+ * author is not followed a small "+" badge sits on its lower edge; tapping the badge follows,
+ * the badge turns into a tick and fades away. An author who is already followed has no badge.
+ */
+@Composable
+private fun AuthorAvatarButton(tweet: Tweet) {
+    val subscriptions by SubscriptionListStore.state.collectAsState()
+    val handle = tweet.userHandle.replaceFirst("@", "")
+    val isSubscribed = subscriptions.isSubscribed(tweet.userHandle)
+    // True from the tap on "+" until the tick has faded.
+    var followedHere by remember(tweet.userHandle) { mutableStateOf(false) }
+    val isOwn = FollowBadgeLogic.isOwnAccount(tweet.userHandle, TwitterAccount.currentAccount?.screenName)
+    val badge = FollowBadgeLogic.badgeFor(isSubscribed, followedHere, isOwn)
+
+    val badgeAlpha = remember { Animatable(1f) }
+    val badgeScale = remember { Animatable(1f) }
+    LaunchedEffect(badge) {
+        when (badge) {
+            FollowBadge.Confirmed -> {
+                badgeAlpha.snapTo(1f)
+                badgeScale.snapTo(0.6f)
+                badgeScale.animateTo(1.15f, tween(140, easing = EaseOutCubic))
+                badgeScale.animateTo(1f, tween(120, easing = EaseOutCubic))
+                delay(700)
+                badgeAlpha.animateTo(0f, tween(260))
+                followedHere = false
+            }
+            else -> {
+                badgeAlpha.snapTo(1f)
+                badgeScale.snapTo(1f)
             }
         }
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f, fill = false)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    tweet.userHandle,
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .clickable(interactionSource = noRipple, indication = null) { NavigationStore.selectUser(handle) },
-                    style = TextStyle(
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        letterSpacing = (-0.1).sp,
-                        shadow = TextShadow,
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (isSubscribed) {
-                    Spacer(Modifier.width(4.dp))
-                    Icon(Icons.Rounded.CheckCircle, null, tint = AppColors.accent, modifier = Modifier.size(15.dp))
+    }
+
+    // Tall enough to hold the badge's touch area, which reaches below the avatar.
+    Box(Modifier.width(ActionColumnWidth).height(AvatarSize + BadgeTouchSize / 2)) {
+        PressableScale(
+            onTap = { NavigationStore.selectUser(handle) },
+            tooltip = "Profile of ${tweet.userHandle}",
+            modifier = Modifier.align(Alignment.TopCenter),
+            pressedScale = 0.92f,
+        ) {
+            Box(
+                Modifier
+                    .size(AvatarSize)
+                    .border(1.5.dp, Color.White, CircleShape)
+                    .padding(1.5.dp)
+                    .clip(CircleShape)
+                    .background(AppColors.surfaceHighest),
+                contentAlignment = Alignment.Center,
+            ) {
+                val avatar = tweet.userAvatarUrlHighRes
+                if (avatar != null) {
+                    AsyncImage(
+                        model = avatar,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
                 } else {
-                    Spacer(Modifier.width(8.dp))
-                    PressableScale(
-                        onTap = {
-                            SubscriptionListStore.toggleSubscription(
-                                Subscription(
-                                    id = tweet.userHandle,
-                                    screenName = handle,
-                                    name = tweet.userHandle,
-                                    profileImageUrl = tweet.userAvatarUrl,
-                                ),
-                            )
-                        },
-                    ) {
-                        Box(
-                            Modifier
-                                .background(Color.Black.copy(alpha = 0.2f), RoundedCornerShape(AppRadius.xl))
-                                .border(
-                                    BorderStroke(1.dp, Color.White.copy(alpha = 0.85f)),
-                                    RoundedCornerShape(AppRadius.xl),
-                                )
-                                .padding(horizontal = 12.dp, vertical = 4.dp),
-                        ) {
-                            Text("Follow", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
+                    Icon(Icons.Rounded.Person, null, tint = AppColors.textSecondary, modifier = Modifier.size(22.dp))
                 }
             }
-            if (dateStr.isNotEmpty()) {
-                Text(
-                    dateStr,
-                    style = TextStyle(
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 11.5.sp,
-                        shadow = TextShadow,
-                    ),
-                )
+        }
+        if (badge != FollowBadge.Hidden) {
+            // The badge is centred on the avatar's lower edge; its touch area is larger than it looks.
+            PressableScale(
+                onTap = if (badge == FollowBadge.Plus) {
+                    {
+                        followedHere = true
+                        SubscriptionListStore.toggleSubscription(
+                            Subscription(
+                                id = tweet.userHandle,
+                                screenName = handle,
+                                name = tweet.userHandle,
+                                profileImageUrl = tweet.userAvatarUrl,
+                            ),
+                        )
+                    }
+                } else {
+                    null
+                },
+                tooltip = if (badge == FollowBadge.Plus) "Follow ${tweet.userHandle}" else "Following",
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = AvatarSize - BadgeTouchSize / 2)
+                    .size(BadgeTouchSize),
+            ) {
+                Box(
+                    Modifier
+                        .size(BadgeSize)
+                        .graphicsLayer {
+                            alpha = badgeAlpha.value
+                            scaleX = badgeScale.value
+                            scaleY = badgeScale.value
+                        }
+                        .background(Color.Black, CircleShape)
+                        .padding(1.5.dp)
+                        .background(AppColors.accent, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        if (badge == FollowBadge.Plus) Icons.Rounded.Add else Icons.Rounded.Check,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(13.dp),
+                    )
+                }
             }
         }
     }
@@ -355,7 +414,7 @@ private fun TweetText(text: String) {
                                     textDecoration = TextDecoration.Underline,
                                 ),
                             ),
-                        ) { openUrl(context, span.target) },
+                        ) { openLink(context, span.target) },
                     ) { append(span.text) }
                 }
             }
