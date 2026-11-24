@@ -1,0 +1,65 @@
+{
+  "data": {
+    "user": {
+      "result": {
+        "timeline": {
+          "timeline": {
+            "instructions": [
+              {"type": "TimelineClearCache"},
+              {"type": "TimelineTerminateTimeline", "direction": "Top"},
+              {
+                "type": "TimelineAddEntries",
+                "entries": [
+                  {
+                    "entryId": "user-601",
+                    "content": {
+                      "itemContent": {
+                        "user_results": {
+                          "result": {
+                            "rest_id": "601",
+                            "legacy": {
+                              "screen_name": "old_shape",
+                              "name": "Old Shape",
+                              "profile_image_url_https": "https://img.example/avatars/601_normal.jpg"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "entryId": "user-602",
+                    "content": {
+                      "itemContent": {
+                        "user_results": {
+                          "result": {
+                            "rest_id": "602",
+                            "core": {"screen_name": "new_shape", "name": "New Shape"},
+                            "avatar": {"image_url": "https://img.example/avatars/602_normal.jpg"},
+                            "legacy": {"screen_name": "stale_name"}
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "entryId": "user-603",
+                    "content": {"itemContent": {"user_results": {}}}
+                  },
+                  {
+                    "entryId": "user-604",
+                    "content": {
+                      "itemContent": {"user_results": {"result": {"rest_id": "604", "legacy": {"screen_name": "no_name"}}}}
+                    }
+                  },
+                  {"entryId": "cursor-bottom-1", "content": {"value": "NEXT|42"}},
+                  {"entryId": "cursor-top-1", "content": {"value": "PREV|-1"}}
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

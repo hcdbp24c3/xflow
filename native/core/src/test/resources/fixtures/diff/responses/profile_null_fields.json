@@ -1,0 +1,24 @@
+{
+ "data": {
+  "user": {
+   "result": {
+    "__typename": "User",
+    "id": "VXNlcjo7007",
+    "rest_id": "7007",
+    "affiliates_highlighted_label": {},
+    "has_graduated_access": true,
+    "is_blue_verified": false,
+    "profile_image_shape": "Circle",
+    "legacy": {
+     "screen_name": null,
+     "name": null,
+     "description": null,
+     "followers_count": null,
+     "friends_count": null,
+     "profile_image_url_https": null
+    },
+    "avatar": null
+   }
+  }
+ }
+}

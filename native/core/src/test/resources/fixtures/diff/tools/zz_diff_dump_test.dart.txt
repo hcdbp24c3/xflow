@@ -1,0 +1,680 @@
+// Differential dump: runs the real Flutter TwitterClient (lib/core/client)
+// against a fake HTTP client and writes what it sent and what it parsed.
+// The output is the golden data for the Kotlin port
+// (native/core/src/test/resources/fixtures/diff/golden_dart).
+//
+// How to regenerate (from the repository root; nothing reaches the network):
+//   cp native/core/src/test/resources/fixtures/diff/tools/zz_diff_dump_test.dart.txt test/zz_diff_dump_test.dart
+//   flutter test test/zz_diff_dump_test.dart
+//   cp /tmp/xflow-diff/out/*.json native/core/src/test/resources/fixtures/diff/golden_dart/
+//   rm test/zz_diff_dump_test.dart
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:xflow/core/client/twitter_account.dart';
+import 'package:xflow/core/client/twitter_client.dart';
+import 'package:xflow/core/database/entities.dart';
+import 'package:xflow/core/database/repository.dart';
+import 'package:xflow/core/models/tweet.dart';
+import 'package:xflow/features/settings/settings_provider.dart';
+
+const fixturesDir = 'native/core/src/test/resources/fixtures/diff/responses';
+const workDir = '/tmp/xflow-diff';
+const outDir = '$workDir/out';
+
+class Sent {
+  final String method;
+  final String url;
+  final String? body;
+  final Map<String, String> headers;
+  Sent(this.method, this.url, this.body, this.headers);
+}
+
+final sent = <Sent>[];
+http.Response Function(http.Request request) responder =
+    (_) => http.Response('not found', 404);
+
+http.Response utf8Json(String body, [int status = 200]) => http.Response.bytes(
+    utf8.encode(body), status,
+    headers: {'content-type': 'application/json; charset=utf-8'});
+
+final fakeClient = MockClient((request) async {
+  if (request.url.host != 'x.com') {
+    // the transaction id generator: never answered
+    return http.Response('no', 404);
+  }
+  sent.add(Sent(request.method, request.url.toString(),
+      request.method == 'POST' ? request.body : null, request.headers));
+  return responder(request);
+});
+
+Future<T> run<T>(Future<T> Function() body) =>
+    http.runWithClient(body, () => fakeClient);
+
+/// The address split so that the long constant parts are stored once:
+/// path + [name, encoded value] pairs, exactly as they stand in the URL.
+final Map<String, String> blobs = {}; // encoded value -> blob name
+Map<String, dynamic> splitUrl(String url) {
+  final q = url.indexOf('?');
+  final base = q < 0 ? url : url.substring(0, q);
+  final params = <List<dynamic>>[];
+  if (q >= 0) {
+    for (final pair in url.substring(q + 1).split('&')) {
+      final eq = pair.indexOf('=');
+      final name = pair.substring(0, eq);
+      final value = pair.substring(eq + 1);
+      if (name == 'variables') {
+        params.add([name, value]);
+      } else {
+        final blob = blobs.putIfAbsent(value, () => 'blob${blobs.length + 1}');
+        params.add([
+          name,
+          {'blob': blob}
+        ]);
+      }
+    }
+  }
+  // must rebuild to the very same text
+  final rebuilt = StringBuffer(base);
+  for (var i = 0; i < params.length; i++) {
+    rebuilt.write(i == 0 ? '?' : '&');
+    final v = params[i][1];
+    rebuilt.write('${params[i][0]}=');
+    rebuilt.write(v is String
+        ? v
+        : blobs.entries.firstWhere((e) => e.value == v['blob']).key);
+  }
+  if (rebuilt.toString() != url) throw StateError('split lost bytes: $url');
+  return {'base': base, 'params': params};
+}
+
+List<Map<String, dynamic>> takeSent() {
+  final list = sent
+      .map((s) => {
+            'method': s.method,
+            ...splitUrl(s.url),
+            if (s.body != null) 'body': s.body,
+          })
+      .toList();
+  sent.clear();
+  return list;
+}
+
+Map<String, dynamic> tweetJson(Tweet t) => {
+      'id': t.id,
+      'text': t.text,
+      'userHandle': t.userHandle,
+      'userAvatarUrl': t.userAvatarUrl,
+      'mediaKey': t.mediaKey,
+      'mediaUrls': t.mediaUrls,
+      'thumbnailUrl': t.thumbnailUrl,
+      'isVideo': t.isVideo,
+      'createdAtMillis': t.createdAt?.millisecondsSinceEpoch,
+      'createdAtIsUtc': t.createdAt?.isUtc,
+      'source': t.source,
+      'isLiked': t.isLiked,
+      'favoriteCount': t.favoriteCount,
+      'replyCount': t.replyCount,
+      'retweetCount': t.retweetCount,
+      'isRetweeted': t.isRetweeted,
+      'viewCount': t.viewCount,
+      'isBookmarked': t.isBookmarked,
+    };
+
+Map<String, dynamic> responseJson(TweetResponse r) => {
+      'tweets': r.tweets.map(tweetJson).toList(),
+      'cursorTop': r.cursorTop,
+      'cursorBottom': r.cursorBottom,
+    };
+
+Map<String, dynamic>? subJson(Subscription? s) => s == null
+    ? null
+    : {
+        'id': s.id,
+        'screenName': s.screenName,
+        'name': s.name,
+        'profileImageUrl': s.profileImageUrl,
+        'description': s.description,
+        'followersCount': s.followersCount,
+        'followingCount': s.followingCount,
+      };
+
+String? filterNames(Set<MediaFilter>? f) => f?.map((e) => e.name).join(',');
+
+void writeJson(String name, Object? value) {
+  File('$outDir/$name').writeAsStringSync(
+      '${const JsonEncoder.withIndent(' ').convert(value)}\n');
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  sqfliteFfiInit();
+  databaseFactory = databaseFactoryFfi;
+
+  final client = TwitterClient();
+
+  setUpAll(() async {
+    final work = Directory(workDir);
+    if (work.existsSync()) work.deleteSync(recursive: true);
+    Directory(outDir).createSync(recursive: true);
+    Directory('$workDir/tmp').createSync(recursive: true);
+    await databaseFactoryFfi.setDatabasesPath('$workDir/db');
+    // FFCache keeps its files under the temporary directory.
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+            const MethodChannel('plugins.flutter.io/path_provider'),
+            (call) async => '$workDir/tmp');
+    final stale = Directory('${Directory.systemTemp.path}/ffcache');
+    if (stale.existsSync()) stale.deleteSync(recursive: true);
+    TwitterAccount.setCurrentAccount(Account(
+        id: 'diff', screenName: 'diff_tester', restId: '42', authHeader: '{}'));
+  });
+
+  test('request addresses and bodies', () async {
+    final cases = <Map<String, dynamic>>[];
+    responder = (_) => http.Response('not found', 404);
+
+    // ---- SearchTimeline (fetchTrendingMedia) ----
+    final queries = <String?>[
+      null,
+      '',
+      'cats',
+      '#hashtag',
+      'from:nasa',
+      'tiếng Việt có dấu ở đây',
+      'it\'s "quoted" text',
+      'a  b\tc\nd',
+      'emoji 😀 & ? = + % # / \\ ~ * ( ) ! \' , ; : @ \$ [ ] { } < > | ^ `',
+      'cats -filter:replies',
+      '(from:a OR from:b_c) -filter:replies -filter:retweets',
+      'min_faves:10 lang:vi -filter:links',
+      'ctl \u0001\u001f\u007f nbsp\u00a0 ls\u2028 bom\ufeff end',
+      '한국어 中文 العربية ไทย',
+      '100% "50%25" a+b a%20b',
+    ];
+    final sorts = <FeedSort?>[
+      null,
+      FeedSort.latest,
+      FeedSort.popular,
+      FeedSort.trending,
+      FeedSort.algorithmic,
+      FeedSort.chronological,
+    ];
+    final filterSets = <Set<MediaFilter>?>[
+      null,
+      <MediaFilter>{},
+      {MediaFilter.video},
+      {MediaFilter.image},
+      {MediaFilter.text},
+      {MediaFilter.video, MediaFilter.image},
+      {MediaFilter.image, MediaFilter.video},
+      {MediaFilter.text, MediaFilter.video},
+      {MediaFilter.video, MediaFilter.image, MediaFilter.text},
+    ];
+
+    Future<void> search(String? q, FeedSort? sort, Set<MediaFilter>? filters,
+        int? minFaves, String? cursor, int count) async {
+      await run(() => client.fetchTrendingMedia(
+          query: q,
+          sort: sort,
+          filters: filters,
+          minFaves: minFaves,
+          cursor: cursor,
+          count: count));
+      cases.add({
+        'op': 'search',
+        'query': q,
+        'sort': sort?.name,
+        'filters': filters?.map((e) => e.name).toList(),
+        'minFaves': minFaves,
+        'cursor': cursor,
+        'count': count,
+        'requests': takeSent(),
+      });
+    }
+
+    for (final q in queries) {
+      for (final sort in sorts) {
+        for (final filters in filterSets) {
+          await search(q, sort, filters, null, null, 20);
+        }
+      }
+    }
+    const cursors = [
+      'DAADDAABCgABG9x4Vb5a0AIKAAIb3HhVvlrQAgAIAAIAAAACCAADAAAAAAgABAAAAAAKAAUb3HhWAAAnEAoABhvceFX__9jwAAA',
+      'scroll:thGAVUV0VFVBaAwL3Zq/+x+c8xFoCAvt2Vz6nPMRIYxAESY8LrAAAB9D+AYk3S8an8AAAAFBvceFW+2tAGG9x4Vb5a==|x y&z'
+    ];
+    for (final q in [null, 'cats', 'tiếng Việt có dấu ở đây', 'from:nasa']) {
+      for (final sort in [null, FeedSort.popular, FeedSort.trending]) {
+        for (final filters in [
+          null,
+          {MediaFilter.video},
+          {MediaFilter.image, MediaFilter.text}
+        ]) {
+          for (final minFaves in [50, 0, 100000]) {
+            await search(q, sort, filters, minFaves, null, 20);
+          }
+          for (final cursor in cursors) {
+            await search(q, sort, filters, null, cursor, 20);
+            await search(q, sort, filters, 50, cursor, 40);
+          }
+          await search(q, sort, filters, null, null, 1);
+          await search(q, sort, filters, null, '', 100);
+        }
+      }
+    }
+
+    // ---- the encoding itself ----
+    // The Flutter client never sends a request whose address holds a
+    // non-ASCII character or a stray '%': writing it to the log throws
+    // (Uri.decodeQueryComponent on an already decoded value) and the call
+    // returns nothing. Those cases have "requests": [] above. To compare the
+    // encoding of such text all the same, this runs the two primitives the
+    // client builds addresses with (jsonEncode and Uri.https) directly.
+    for (final q in [
+      ...queries.whereType<String>(),
+      ...cursors,
+      'quote " backslash \\ slash / tab\t newline\n cr\r ff\u000c bs\u0008 vt\u000b nul\u0000',
+      '\ud83d\ude00 astral, \u00e9 latin1, \u1ebf vn, \u3042 jp, \u0301 combining',
+      '-._~ !*\'() ;/?:@&=+\$, #[] <>"{}|\\^`%',
+    ]) {
+      final uri = Uri.https('x.com', '/i/api/graphql/x/Encode', {
+        'variables': jsonEncode({'rawQuery': q, 'n': 1, 'b': true, 'z': null}),
+      });
+      cases.add({
+        'op': 'encode',
+        'text': q,
+        'requests': [
+          {'method': 'GET', ...splitUrl(uri.toString())}
+        ],
+      });
+    }
+
+    // ---- the search calls made through other methods ----
+    for (final name in ['nasa', '@nasa', 'Tên_Có_Dấu', 'a b', 'x"y']) {
+      for (final cursor in [null, cursors[0]]) {
+        for (final sort in [null, FeedSort.popular, FeedSort.trending]) {
+          for (final filters in [
+            null,
+            <MediaFilter>{},
+            {MediaFilter.video},
+            {MediaFilter.image, MediaFilter.video}
+          ]) {
+            await run(() => client.fetchUserTweets(name,
+                cursor: cursor, sort: sort, filters: filters, count: 30));
+            cases.add({
+              'op': 'userTweets',
+              'screenName': name,
+              'sort': sort?.name,
+              'filters': filters?.map((e) => e.name).toList(),
+              'cursor': cursor,
+              'count': 30,
+              'requests': takeSent(),
+            });
+          }
+        }
+        await run(
+            () => client.fetchUserTimelineByScreenName(name, cursor: cursor));
+        cases.add({
+          'op': 'userTimelineByScreenName',
+          'screenName': name,
+          'cursor': cursor,
+          'requests': takeSent(),
+        });
+      }
+    }
+
+    // ---- UserByScreenName (new, then old) ----
+    for (final name in [
+      'nasa',
+      '@nasa',
+      '@@two',
+      'Tên_Có_Dấu',
+      'a b',
+      'x"y\\z',
+      '',
+      '@',
+      'emoji😀'
+    ]) {
+      await run(() => client.fetchProfile(name));
+      cases.add({'op': 'profile', 'screenName': name, 'requests': takeSent()});
+    }
+
+    // ---- Following (second address comes from the cursor of the first page) ----
+    var followingCall = 0;
+    for (final cursor in [
+      null,
+      '1790000000000000000|1840000000000000000',
+      'odd cursor+/=&?#%"\\é'
+    ]) {
+      final userId = '70000${followingCall++}';
+      var page = 0;
+      responder = (_) {
+        page++;
+        if (page == 1 && cursor != null) {
+          return utf8Json(jsonEncode({
+            'data': {
+              'user': {
+                'result': {
+                  'timeline': {
+                    'timeline': {
+                      'instructions': [
+                        {
+                          'type': 'TimelineAddEntries',
+                          'entries': [
+                            {
+                              'entryId': 'user-1',
+                              'content': {
+                                'itemContent': {
+                                  'user_results': {
+                                    'result': {
+                                      'rest_id': '1',
+                                      'legacy': {
+                                        'screen_name': 'a',
+                                        'name': 'A'
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              'entryId': 'cursor-bottom-1',
+                              'content': {'value': cursor}
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }));
+        }
+        return http.Response('not found', 404);
+      };
+      await run(() => client.fetchFollowing(userId));
+      cases.add({
+        'op': 'following',
+        'userId': userId,
+        'cursorOfFirstPage': cursor,
+        'requests': takeSent(),
+      });
+    }
+    responder = (_) => http.Response('not found', 404);
+
+    // ---- UserTweets, TweetDetail, home timelines ----
+    for (final cursor in <String?>[null, cursors[0], cursors[1], '']) {
+      for (final count in [20, 5, 100]) {
+        await run(() =>
+            client.fetchUserTimeline('44196397', cursor: cursor, count: count));
+        cases.add({
+          'op': 'userTimeline',
+          'userId': '44196397',
+          'cursor': cursor,
+          'count': count,
+          'requests': takeSent(),
+        });
+        await run(() => client.fetchVideoMixer(cursor: cursor, count: count));
+        cases.add({
+          'op': 'videoMixer',
+          'cursor': cursor,
+          'count': count,
+          'requests': takeSent()
+        });
+        await run(() =>
+            client.fetchAlgorithmicTimeline(cursor: cursor, count: count));
+        cases.add({
+          'op': 'algorithmic',
+          'cursor': cursor,
+          'count': count,
+          'requests': takeSent()
+        });
+        await run(() =>
+            client.fetchChronologicalTimeline(cursor: cursor, count: count));
+        cases.add({
+          'op': 'chronological',
+          'cursor': cursor,
+          'count': count,
+          'requests': takeSent()
+        });
+      }
+      for (final id in ['1840000000000000001', 'not-a-number é']) {
+        await run(() => client.fetchTweetDetail(id, cursor: cursor));
+        cases.add({
+          'op': 'tweetDetail',
+          'focalTweetId': id,
+          'cursor': cursor,
+          'requests': takeSent()
+        });
+      }
+    }
+
+    // ---- mutations ----
+    for (final id in ['1840000000000000001', '', 'x"y\\é']) {
+      await run(() => client.favoriteTweet(id));
+      cases.add({'op': 'favorite', 'tweetId': id, 'requests': takeSent()});
+      await run(() => client.unfavoriteTweet(id));
+      cases.add({'op': 'unfavorite', 'tweetId': id, 'requests': takeSent()});
+      await run(() => client.retweetTweet(id));
+      cases.add({'op': 'retweet', 'tweetId': id, 'requests': takeSent()});
+      await run(() => client.unretweetTweet(id));
+      cases.add({'op': 'unretweet', 'tweetId': id, 'requests': takeSent()});
+    }
+    for (final text in [
+      'hello',
+      '',
+      'Tiếng Việt có dấu 😀',
+      'quote " backslash \\ slash / tab\t newline\n cr\r',
+      'ctl \u0000\u0001\u0008\u000b\u000c\u001f del\u007f c1\u0085 nbsp\u00a0 ls\u2028 ps\u2029',
+      '</script> <!-- & \' é \ud83d\ude00',
+    ]) {
+      for (final reply in <String?>[null, '1840000000000000001']) {
+        await run(() => client.postTweet(text, inReplyToTweetId: reply));
+        cases.add({
+          'op': 'postTweet',
+          'text': text,
+          'inReplyToTweetId': reply,
+          'requests': takeSent()
+        });
+      }
+    }
+
+    // ---- subscription queries (fetchSubscribedMedia) ----
+    Future<void> subscribed(String label, List<String> names,
+        {required bool includeNativeRetweets,
+        required bool chunked,
+        int maxQueryLength = 480,
+        int subBatchSize = 10,
+        int? expectedChunkIndex,
+        String? cursor}) async {
+      await Repository.clearSubscriptions();
+      await Repository.insertSubscriptions([
+        for (var i = 0; i < names.length; i++)
+          Subscription(id: 'id$i', screenName: names[i], name: 'Name $i')
+      ]);
+      await run(() => client.fetchSubscribedMedia(
+          cursor: cursor,
+          includeNativeRetweets: includeNativeRetweets,
+          useChunkedSubscriptions: chunked,
+          maxQueryLength: maxQueryLength,
+          subBatchSize: subBatchSize));
+      final requests = takeSent();
+      final first = requests.isEmpty
+          ? null
+          : Uri.parse(
+              '${requests.first['base']}?variables=${(requests.first['params'] as List).first[1]}');
+      cases.add({
+        'op': 'subscribed',
+        'label': label,
+        'names': names,
+        'includeNativeRetweets': includeNativeRetweets,
+        'chunked': chunked,
+        'maxQueryLength': maxQueryLength,
+        'subBatchSize': subBatchSize,
+        'chunkIndex': expectedChunkIndex,
+        'cursor': cursor,
+        'rawQuery': first == null
+            ? null
+            : jsonDecode(first.queryParameters['variables']!)['rawQuery'],
+        'requests': requests,
+      });
+    }
+
+    final varied = ['nasa', 'Ten_Co_Dau', 'a', 'UPPER_lower_123', 'x_y'];
+    final equal = [for (var i = 0; i < 40; i++) 'user_${1000 + i}'];
+    // One chunk: the chunk index stays (or goes back to) 0 after each of these.
+    for (final rt in [false, true]) {
+      await subscribed('one chunk', varied,
+          includeNativeRetweets: rt, chunked: true, expectedChunkIndex: 0);
+      await subscribed('one account', ['solo'],
+          includeNativeRetweets: rt, chunked: true, expectedChunkIndex: 0);
+      // many chunks: first call reads chunk 0, the next one chunk 1, ...
+      for (final max in [120, 200, 480]) {
+        for (var i = 0; i < 3; i++) {
+          await subscribed('many chunks', equal,
+              includeNativeRetweets: rt,
+              chunked: true,
+              maxQueryLength: max,
+              expectedChunkIndex: i);
+        }
+        // back to chunk 0 for the next round
+        await subscribed('reset', ['solo'],
+            includeNativeRetweets: rt, chunked: true, expectedChunkIndex: 0);
+      }
+      // every account alone exceeds the limit
+      await subscribed('limit below one account', equal.take(4).toList(),
+          includeNativeRetweets: rt,
+          chunked: true,
+          maxQueryLength: 10,
+          expectedChunkIndex: 0);
+      await subscribed('reset', ['solo'],
+          includeNativeRetweets: rt, chunked: true, expectedChunkIndex: 0);
+      // random sample instead of chunks
+      for (final batch in [1, 5, 10, 100]) {
+        await subscribed('random sample', equal,
+            includeNativeRetweets: rt, chunked: false, subBatchSize: batch);
+      }
+      await subscribed('random sample', varied,
+          includeNativeRetweets: rt, chunked: false, subBatchSize: 3);
+    }
+
+    // one case per line keeps the file small and diffs readable
+    final out = StringBuffer('{\n');
+    out.writeln(
+        ' "about": ${jsonEncode('Golden từ client Dart (lib/core/client/twitter_client.dart): mọi request nó gửi, tách thành base + params đã mã hoá (blob = phần features/fieldToggles dùng chung). Sinh bằng tools/zz_diff_dump_test.dart.txt')},');
+    out.writeln(
+        ' "blobs": ${jsonEncode({for (final e in blobs.entries) e.value: e.key})},');
+    out.writeln(' "cases": [');
+    for (var i = 0; i < cases.length; i++) {
+      out.writeln('  ${jsonEncode(cases[i])}${i == cases.length - 1 ? '' : ','}');
+    }
+    out.writeln(' ]\n}');
+    File('$outDir/uri_golden.json').writeAsStringSync(out.toString());
+    // ignore: avoid_print
+    print('URI CASES: ${cases.length}');
+  }, timeout: const Timeout(Duration(minutes: 20)));
+
+  test('parsed responses', () async {
+    final files = Directory(fixturesDir)
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.json'))
+        .toList()
+      ..sort((a, b) => a.path.compareTo(b.path));
+    final golden = <String, dynamic>{};
+    var n = 0;
+    for (final file in files) {
+      final name = file.uri.pathSegments.last.replaceAll('.json', '');
+      final body = file.readAsStringSync();
+      final kind = name.split('_').first;
+      n++;
+      responder = (_) => utf8Json(body);
+      Object? result;
+      switch (kind) {
+        case 'search':
+          result = responseJson(
+              await run(() => client.fetchTrendingMedia(query: 'q')));
+          break;
+        case 'usertweets':
+          result = responseJson(await run(() => client.fetchUserTimeline('1')));
+          break;
+        case 'detail':
+          result = responseJson(await run(() => client.fetchTweetDetail('1')));
+          break;
+        case 'home':
+          final filtered = <String, dynamic>{};
+          for (final filters in [
+            {MediaFilter.video},
+            {MediaFilter.image},
+            {MediaFilter.text},
+            {MediaFilter.image, MediaFilter.text},
+            {MediaFilter.video, MediaFilter.image, MediaFilter.text},
+          ]) {
+            final r = await run(
+                () => client.fetchAlgorithmicTimeline(filters: filters));
+            filtered[filterNames(filters)!] = r.tweets.map((t) => t.id).toList();
+          }
+          final mixer = await run(() => client.fetchVideoMixer());
+          final latest = await run(() => client.fetchChronologicalTimeline());
+          final algo = await run(() => client.fetchAlgorithmicTimeline());
+          expect(jsonEncode(responseJson(mixer)), jsonEncode(responseJson(algo)));
+          expect(
+              jsonEncode(responseJson(latest)), jsonEncode(responseJson(algo)));
+          result = {...responseJson(algo), 'filteredIds': filtered};
+          break;
+        case 'following':
+          sent.clear();
+          var page = 0;
+          responder = (_) => ++page == 1
+              ? utf8Json(body)
+              : utf8Json('{"data":{"user":{"result":{}}}}');
+          final subs = await run(() => client.fetchFollowing('8${1000 + n}'));
+          final cursorsAsked = sent
+              .skip(1)
+              .map((s) =>
+                  jsonDecode(Uri.parse(s.url).queryParameters['variables']!)[
+                      'cursor'])
+              .toList();
+          result = {
+            'subscriptions': subs.map(subJson).toList(),
+            'nextCursorsRequested': cursorsAsked,
+          };
+          break;
+        case 'profile':
+          result = {
+            'profile': subJson(await run(() => client.fetchProfile('@asked_name')))
+          };
+          break;
+        default:
+          fail('unknown fixture kind: $name');
+      }
+      sent.clear();
+      golden[name] = result;
+    }
+    writeJson('parse_golden.json', {
+      'about':
+          'Golden từ parser Dart (lib/core/client/twitter_client.dart) chạy trên các file trong ../responses. Sinh bằng tools/zz_diff_dump_test.dart.txt. createdAtMillis là kết quả thật của bản Dart.',
+      'fixtures': golden,
+    });
+    // ignore: avoid_print
+    print('PARSE FIXTURES: $n');
+  }, timeout: const Timeout(Duration(minutes: 10)));
+
+  test('sample headers (for reading only)', () async {
+    responder = (_) => http.Response('not found', 404);
+    await run(() => client.fetchVideoMixer());
+    await run(() => client.favoriteTweet('1'));
+    File('$workDir/sample_headers.json').writeAsStringSync(
+        const JsonEncoder.withIndent(' ').convert([
+      for (final s in sent) {'method': s.method, 'headers': s.headers}
+    ]));
+    sent.clear();
+  });
+}

@@ -1,0 +1,2605 @@
+{
+ "about": "Golden từ parser Dart (lib/core/client/twitter_client.dart) chạy trên các file trong ../responses. Sinh bằng tools/zz_diff_dump_test.dart.txt. createdAtMillis là kết quả thật của bản Dart.",
+ "fixtures": {
+  "detail_conversation": {
+   "tweets": [
+    {
+     "id": "1960000000000000001",
+     "text": "focal post",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_1101",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/1101/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/1101/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1960000000000000010",
+     "text": "reply 1",
+     "userHandle": "@bob_new",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/2002/new_normal.jpg",
+     "mediaKey": null,
+     "mediaUrls": [],
+     "thumbnailUrl": null,
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1960000000000000011",
+     "text": "author answers",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_1111",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P1111.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P1111.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1960000000000000030",
+     "text": "reply 3",
+     "userHandle": "@dave",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/4004/new_normal.jpg",
+     "mediaKey": null,
+     "mediaUrls": [],
+     "thumbnailUrl": null,
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1960000000000000040",
+     "text": "related",
+     "userHandle": "@carol",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "mediaKey": "7_1140",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/1140/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/1140/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    }
+   ],
+   "cursorTop": null,
+   "cursorBottom": "detail-bottom-in-item"
+  },
+  "detail_focal_tombstone": {
+   "tweets": [
+    {
+     "id": "1970000000000000002",
+     "text": "still here",
+     "userHandle": "@bob_new",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/2002/new_normal.jpg",
+     "mediaKey": "3_1202",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P1202.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P1202.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    }
+   ],
+   "cursorTop": null,
+   "cursorBottom": "tomb-bottom"
+  },
+  "detail_not_found": {
+   "tweets": [],
+   "cursorTop": null,
+   "cursorBottom": null
+  },
+  "detail_tweet_result_by_rest_id": {
+   "tweets": [],
+   "cursorTop": null,
+   "cursorBottom": null
+  },
+  "following_cursor_before_users": {
+   "subscriptions": [
+    {
+     "id": "1001",
+     "screenName": "alice_media",
+     "name": "Alice Nguyễn",
+     "profileImageUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "description": null,
+     "followersCount": null,
+     "followingCount": null
+    }
+   ],
+   "nextCursorsRequested": []
+  },
+  "following_last_page_cursor_only": {
+   "subscriptions": [],
+   "nextCursorsRequested": []
+  },
+  "following_legacy_users": {
+   "subscriptions": [
+    {
+     "id": "1001",
+     "screenName": "alice_media",
+     "name": "Alice Nguyễn",
+     "profileImageUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "description": null,
+     "followersCount": null,
+     "followingCount": null
+    },
+    {
+     "id": "1002",
+     "screenName": "Mixed_Case",
+     "name": "Tên có dấu",
+     "profileImageUrl": "https://pbs.twimg.com/profile_images/1002/av_normal.jpg",
+     "description": null,
+     "followersCount": null,
+     "followingCount": null
+    },
+    {
+     "id": "1003",
+     "screenName": "no_avatar",
+     "name": "No Avatar",
+     "profileImageUrl": null,
+     "description": null,
+     "followersCount": null,
+     "followingCount": null
+    },
+    {
+     "id": "1004",
+     "screenName": "no_name",
+     "name": "",
+     "profileImageUrl": null,
+     "description": null,
+     "followersCount": null,
+     "followingCount": null
+    }
+   ],
+   "nextCursorsRequested": [
+    "1790000000000000000|1840000000000000000"
+   ]
+  },
+  "following_legacy_without_screen_name": {
+   "subscriptions": [
+    {
+     "id": "1001",
+     "screenName": "alice_media",
+     "name": "Alice Nguyễn",
+     "profileImageUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "description": null,
+     "followersCount": null,
+     "followingCount": null
+    }
+   ],
+   "nextCursorsRequested": []
+  },
+  "following_mixed_and_broken": {
+   "subscriptions": [
+    {
+     "id": "1001",
+     "screenName": "alice_media",
+     "name": "Alice Nguyễn",
+     "profileImageUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "description": null,
+     "followersCount": null,
+     "followingCount": null
+    },
+    {
+     "id": "2002",
+     "screenName": "bob_new",
+     "name": "Bob 🚀",
+     "profileImageUrl": "https://pbs.twimg.com/profile_images/2002/new_normal.jpg",
+     "description": null,
+     "followersCount": null,
+     "followingCount": null
+    }
+   ],
+   "nextCursorsRequested": []
+  },
+  "following_new_shape_users": {
+   "subscriptions": [
+    {
+     "id": "2002",
+     "screenName": "bob_new",
+     "name": "Bob 🚀",
+     "profileImageUrl": "https://pbs.twimg.com/profile_images/2002/new_normal.jpg",
+     "description": null,
+     "followersCount": null,
+     "followingCount": null
+    },
+    {
+     "id": "4004",
+     "screenName": "dave",
+     "name": "Dave",
+     "profileImageUrl": "https://pbs.twimg.com/profile_images/4004/new_normal.jpg",
+     "description": null,
+     "followersCount": null,
+     "followingCount": null
+    },
+    {
+     "id": "3003",
+     "screenName": "carol",
+     "name": "Carol",
+     "profileImageUrl": "https://pbs.twimg.com/profile_images/3003/both_normal.jpg",
+     "description": null,
+     "followersCount": null,
+     "followingCount": null
+    },
+    {
+     "id": "2005",
+     "screenName": "no_avatar_new",
+     "name": "N",
+     "profileImageUrl": null,
+     "description": null,
+     "followersCount": null,
+     "followingCount": null
+    },
+    {
+     "id": "2006",
+     "screenName": "legacy_avatar_only",
+     "name": "L",
+     "profileImageUrl": null,
+     "description": null,
+     "followersCount": null,
+     "followingCount": null
+    }
+   ],
+   "nextCursorsRequested": [
+    "new-following-bottom"
+   ]
+  },
+  "following_no_add_entries": {
+   "subscriptions": [],
+   "nextCursorsRequested": []
+  },
+  "following_old_timeline_path": {
+   "subscriptions": [],
+   "nextCursorsRequested": []
+  },
+  "home_data_null": {
+   "tweets": [],
+   "cursorTop": null,
+   "cursorBottom": null,
+   "filteredIds": {
+    "video": [],
+    "image": [],
+    "text": [],
+    "image,text": [],
+    "video,image,text": []
+   }
+  },
+  "home_instructions_found_first_elsewhere": {
+   "tweets": [],
+   "cursorTop": null,
+   "cursorBottom": null,
+   "filteredIds": {
+    "video": [],
+    "image": [],
+    "text": [],
+    "image,text": [],
+    "video,image,text": []
+   }
+  },
+  "home_no_data": {
+   "tweets": [],
+   "cursorTop": null,
+   "cursorBottom": null,
+   "filteredIds": {
+    "video": [],
+    "image": [],
+    "text": [],
+    "image,text": [],
+    "video,image,text": []
+   }
+  },
+  "home_timeline": {
+   "tweets": [
+    {
+     "id": "1980000000000000001",
+     "text": "home video",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_1301",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/1301/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/1301/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1980000000000000002",
+     "text": "home photo",
+     "userHandle": "@bob_new",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/2002/new_normal.jpg",
+     "mediaKey": "3_1302",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P1302.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P1302.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1980000000000000003",
+     "text": "home text",
+     "userHandle": "@carol",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "mediaKey": null,
+     "mediaUrls": [],
+     "thumbnailUrl": null,
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1980000000000000004",
+     "text": "promoted home",
+     "userHandle": "@dave",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/4004/new_normal.jpg",
+     "mediaKey": "7_1304",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/1304/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/1304/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1980000000000000010",
+     "text": "conv root",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_1310",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P1310.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P1310.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1980000000000000011",
+     "text": "conv reply",
+     "userHandle": "@bob_new",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/2002/new_normal.jpg",
+     "mediaKey": "16_1311",
+     "mediaUrls": [
+      "https://video.twimg.com/tweet_video/G1311.mp4"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/1311/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1880000000000000100",
+     "text": "original with video",
+     "userHandle": "@carol",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "mediaKey": "7_401",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/401/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/401/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": true,
+     "favoriteCount": 9001,
+     "replyCount": 20,
+     "retweetCount": 300,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1980000000000000006",
+     "text": "photo with empty-variant video",
+     "userHandle": "@carol",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "mediaKey": "7_602",
+     "mediaUrls": [],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/602/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    }
+   ],
+   "cursorTop": "home-top",
+   "cursorBottom": "home-bottom",
+   "filteredIds": {
+    "video": [
+     "1980000000000000001",
+     "1980000000000000004",
+     "1980000000000000011",
+     "1880000000000000100",
+     "1980000000000000006"
+    ],
+    "image": [
+     "1980000000000000002",
+     "1980000000000000010"
+    ],
+    "text": [
+     "1980000000000000003",
+     "1980000000000000006"
+    ],
+    "image,text": [
+     "1980000000000000002",
+     "1980000000000000003",
+     "1980000000000000010",
+     "1980000000000000006"
+    ],
+    "video,image,text": [
+     "1980000000000000001",
+     "1980000000000000002",
+     "1980000000000000003",
+     "1980000000000000004",
+     "1980000000000000010",
+     "1980000000000000011",
+     "1880000000000000100",
+     "1980000000000000006"
+    ]
+   }
+  },
+  "home_video_mixer": {
+   "tweets": [
+    {
+     "id": "2000000000000000001",
+     "text": "mixer 1",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_1501",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/1501/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/1501/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "2000000000000000003",
+     "text": "mixer 3",
+     "userHandle": "@carol",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "mediaKey": "7_1503",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/1503/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/1503/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    }
+   ],
+   "cursorTop": null,
+   "cursorBottom": "mixer-bottom",
+   "filteredIds": {
+    "video": [
+     "2000000000000000001",
+     "2000000000000000003"
+    ],
+    "image": [],
+    "text": [],
+    "image,text": [],
+    "video,image,text": [
+     "2000000000000000001",
+     "2000000000000000003"
+    ]
+   }
+  },
+  "profile_big_counts": {
+   "profile": {
+    "id": "8008",
+    "screenName": "big",
+    "name": "Big",
+    "profileImageUrl": "https://pbs.twimg.com/profile_images/8008/b_normal.jpg",
+    "description": "",
+    "followersCount": 223456789,
+    "followingCount": 0
+   }
+  },
+  "profile_both_shapes": {
+   "profile": {
+    "id": "3003",
+    "screenName": "carol",
+    "name": "Carol",
+    "profileImageUrl": "https://pbs.twimg.com/profile_images/3003/both_normal.jpg",
+    "description": "bio of Carol",
+    "followersCount": 5678,
+    "followingCount": 321
+   }
+  },
+  "profile_counts_wrong_type": {
+   "profile": null
+  },
+  "profile_legacy_shape": {
+   "profile": {
+    "id": "1001",
+    "screenName": "alice_media",
+    "name": "Alice Nguyễn",
+    "profileImageUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+    "description": "bio of Alice Nguyễn",
+    "followersCount": 5678,
+    "followingCount": 321
+   }
+  },
+  "profile_new_shape": {
+   "profile": {
+    "id": "2002",
+    "screenName": "asked_name",
+    "name": "asked_name",
+    "profileImageUrl": "https://pbs.twimg.com/profile_images/2002/new_normal.jpg",
+    "description": "new shape bio of Bob 🚀",
+    "followersCount": 222,
+    "followingCount": 111
+   }
+  },
+  "profile_no_legacy": {
+   "profile": {
+    "id": "5005",
+    "screenName": "asked_name",
+    "name": "asked_name",
+    "profileImageUrl": "https://pbs.twimg.com/a.jpg",
+    "description": null,
+    "followersCount": null,
+    "followingCount": null
+   }
+  },
+  "profile_not_found": {
+   "profile": null
+  },
+  "profile_null_fields": {
+   "profile": {
+    "id": "7007",
+    "screenName": "asked_name",
+    "name": "asked_name",
+    "profileImageUrl": null,
+    "description": null,
+    "followersCount": null,
+    "followingCount": null
+   }
+  },
+  "profile_unavailable": {
+   "profile": null
+  },
+  "profile_user_null": {
+   "profile": null
+  },
+  "search_basic_mixed": {
+   "tweets": [
+    {
+     "id": "1840000000000000001",
+     "text": "ảnh đẹp quá https://t.co/p1",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_11",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P11.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P11.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1840000000000000002",
+     "text": "video nè",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_22",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/22/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/22/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": true,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": true,
+     "viewCount": 98765,
+     "isBookmarked": false
+    },
+    {
+     "id": "1840000000000000003",
+     "text": "gif \"quote\" & <tag>",
+     "userHandle": "@carol",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "mediaKey": "16_33",
+     "mediaUrls": [
+      "https://video.twimg.com/tweet_video/G33.mp4"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/33/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1840000000000000004",
+     "text": "4 photos",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_41",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P41.jpg",
+      "https://pbs.twimg.com/media/P42.jpg",
+      "https://pbs.twimg.com/media/P43.jpg",
+      "https://pbs.twimg.com/media/P44.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P41.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1840000000000000005",
+     "text": "mixed",
+     "userHandle": "@carol",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "mediaKey": "3_51",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P51.jpg",
+      "https://video.twimg.com/ext_tw_video/52/pu/vid/avc1/1280x720/high.mp4?tag=12",
+      "https://video.twimg.com/tweet_video/G53.mp4"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P51.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1840000000000000006",
+     "text": "chỉ có chữ, không media 😀",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": null,
+     "mediaUrls": [],
+     "thumbnailUrl": null,
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1840000000000000007",
+     "text": "video first then photo",
+     "userHandle": "@carol",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "mediaKey": "7_71",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/71/pu/vid/avc1/1280x720/high.mp4?tag=12",
+      "https://pbs.twimg.com/media/P72.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/71/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    }
+   ],
+   "cursorTop": "DAABCgABGc-top__8KAAIZ",
+   "cursorBottom": "DAABCgABGc-bottom__8KAAIZ"
+  },
+  "search_end_empty_add_entries": {
+   "tweets": [],
+   "cursorTop": null,
+   "cursorBottom": null
+  },
+  "search_end_replace_only": {
+   "tweets": [],
+   "cursorTop": "end-top",
+   "cursorBottom": null
+  },
+  "search_errors_only": {
+   "tweets": [],
+   "cursorTop": null,
+   "cursorBottom": null
+  },
+  "search_instruction_types_mixed": {
+   "tweets": [
+    {
+     "id": "1940000000000000002",
+     "text": "typename-only instruction",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_912",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/912/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/912/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    }
+   ],
+   "cursorTop": "mix-top",
+   "cursorBottom": "mix-bottom"
+  },
+  "search_instructions_at_top": {
+   "tweets": [
+    {
+     "id": "1930000000000000001",
+     "text": "instructions directly under search_timeline",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_901",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P901.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P901.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    }
+   ],
+   "cursorTop": null,
+   "cursorBottom": "direct-bottom"
+  },
+  "search_media_edge_cases": {
+   "tweets": [
+    {
+     "id": "1900000000000000001",
+     "text": "entities only",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_600",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P600.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P600.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1900000000000000002",
+     "text": "extended empty, entities filled",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_600",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P600.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P600.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1900000000000000003",
+     "text": "no mp4",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_601",
+     "mediaUrls": [
+      "https://video.twimg.com/amplify_video/601/pl/master.m3u8"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/601/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1900000000000000004",
+     "text": "no variants",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_602",
+     "mediaUrls": [],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/602/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1900000000000000005",
+     "text": "no video_info",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_603",
+     "mediaUrls": [],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/603/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1900000000000000006",
+     "text": "bitrate missing",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_604",
+     "mediaUrls": [
+      "https://video.twimg.com/604/632.mp4"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/604/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1900000000000000007",
+     "text": "ties at zero",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_605",
+     "mediaUrls": [
+      "https://video.twimg.com/605/first-none.mp4"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/605/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1900000000000000008",
+     "text": "best has null url",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_606",
+     "mediaUrls": [
+      "https://video.twimg.com/606/low.mp4"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/606/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1900000000000000009",
+     "text": "first variant no url",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_607",
+     "mediaUrls": [],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/607/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1900000000000000010",
+     "text": "float bitrate",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_608",
+     "mediaUrls": [
+      "https://video.twimg.com/608/float.mp4"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/608/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1900000000000000011",
+     "text": "many variants",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_609",
+     "mediaUrls": [
+      "https://video.twimg.com/609/top.mp4"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/609/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1900000000000000012",
+     "text": "photo no url first",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": null,
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P612.jpg"
+     ],
+     "thumbnailUrl": null,
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1900000000000000013",
+     "text": "photo no key",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": null,
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P611.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P611.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1900000000000000014",
+     "text": "unknown type",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_614",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P615.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P614.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1900000000000000015",
+     "text": "empty video then photo",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_602",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P616.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/602/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1900000000000000016",
+     "text": "entities null",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": null,
+     "mediaUrls": [],
+     "thumbnailUrl": null,
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1900000000000000017",
+     "text": "media null",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": null,
+     "mediaUrls": [],
+     "thumbnailUrl": null,
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    }
+   ],
+   "cursorTop": null,
+   "cursorBottom": null
+  },
+  "search_missing_and_wrong_types": {
+   "tweets": [
+    {
+     "id": "tweet-1910000000000000002",
+     "text": "no rest_id",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_702",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P702.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P702.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000003",
+     "text": "favorited null",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_703",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P703.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P703.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 0,
+     "replyCount": 0,
+     "retweetCount": 0,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000007",
+     "text": "views missing",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_707",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P707.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P707.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 0,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000008",
+     "text": "views not a number",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_708",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P708.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P708.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 0,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000009",
+     "text": "views int",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_709",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P709.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P709.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 77,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000010",
+     "text": "views padded",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_710",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P710.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P710.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 12,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000011",
+     "text": "views in legacy",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_711",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P711.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P711.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 0,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000012",
+     "text": "views huge",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_712",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P712.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P712.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 98765432109,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000013",
+     "text": "created_at missing, ms present",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_713",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P713.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P713.jpg",
+     "isVideo": false,
+     "createdAtMillis": 1700000000123,
+     "createdAtIsUtc": true,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000014",
+     "text": "created_at_ms as string",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_714",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P714.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P714.jpg",
+     "isVideo": false,
+     "createdAtMillis": 1700000000456,
+     "createdAtIsUtc": true,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000015",
+     "text": "no date at all",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_715",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P715.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P715.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000016",
+     "text": "iso date",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_716",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P716.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P716.jpg",
+     "isVideo": false,
+     "createdAtMillis": 1714979289000,
+     "createdAtIsUtc": true,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000017",
+     "text": "garbage date",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_717",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P717.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P717.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000018",
+     "text": "offset date",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_718",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P718.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P718.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000019",
+     "text": "only text field",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_719",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P719.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P719.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000020",
+     "text": "",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_720",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P720.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P720.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000022",
+     "text": "screen_name as number",
+     "userHandle": "@12345",
+     "userAvatarUrl": null,
+     "mediaKey": "3_722",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P722.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P722.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000033",
+     "text": "entry without id",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_733",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P733.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P733.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1910000000000000037",
+     "text": "last good one",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_737",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/737/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/737/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    }
+   ],
+   "cursorTop": "nested-top",
+   "cursorBottom": null
+  },
+  "search_modules_and_users": {
+   "tweets": [
+    {
+     "id": "1920000000000000001",
+     "text": "before module",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_801",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P801.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P801.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1920000000000000002",
+     "text": "module a",
+     "userHandle": "@carol",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "mediaKey": "7_802",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/802/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/802/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1920000000000000004",
+     "text": "module c text",
+     "userHandle": "@bob_new",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/2002/new_normal.jpg",
+     "mediaKey": null,
+     "mediaUrls": [],
+     "thumbnailUrl": null,
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1920000000000000005",
+     "text": "direct tweet_results",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_805",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P805.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P805.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1920000000000000007",
+     "text": "after modules",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_807",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P807.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P807.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1920000000000000008",
+     "text": "promoted",
+     "userHandle": "@dave",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/4004/new_normal.jpg",
+     "mediaKey": "7_808",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/808/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/808/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    }
+   ],
+   "cursorTop": "sq-top",
+   "cursorBottom": "sq-bottom"
+  },
+  "search_new_user_shape": {
+   "tweets": [
+    {
+     "id": "1850000000000000001",
+     "text": "new user shape photo",
+     "userHandle": "@bob_new",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/2002/new_normal.jpg",
+     "mediaKey": "3_101",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P101.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P101.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1850000000000000002",
+     "text": "new user shape video",
+     "userHandle": "@dave",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/4004/new_normal.jpg",
+     "mediaKey": "7_102",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/102/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/102/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1850000000000000003",
+     "text": "both shapes",
+     "userHandle": "@carol",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "mediaKey": "3_103",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P103.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P103.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1850000000000000004",
+     "text": "empty user result",
+     "userHandle": "@Unknown",
+     "userAvatarUrl": null,
+     "mediaKey": "3_104",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P104.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P104.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1850000000000000005",
+     "text": "core without user_results",
+     "userHandle": "@Unknown",
+     "userAvatarUrl": null,
+     "mediaKey": "3_105",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P105.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P105.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1850000000000000006",
+     "text": "no core",
+     "userHandle": "@Unknown",
+     "userAvatarUrl": null,
+     "mediaKey": "3_106",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P106.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P106.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1850000000000000007",
+     "text": "unavailable user",
+     "userHandle": "@Unknown",
+     "userAvatarUrl": null,
+     "mediaKey": "3_107",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P107.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P107.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    }
+   ],
+   "cursorTop": "new-top",
+   "cursorBottom": "new-bottom"
+  },
+  "search_no_instructions": {
+   "tweets": [],
+   "cursorTop": null,
+   "cursorBottom": null
+  },
+  "search_no_timeline": {
+   "tweets": [],
+   "cursorTop": null,
+   "cursorBottom": null
+  },
+  "search_note_tweet": {
+   "tweets": [
+    {
+     "id": "1890000000000000001",
+     "text": "Bài viết dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất dài rất…",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_501",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P501.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P501.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1890000000000000002",
+     "text": "note + own media",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_502",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/502/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/502/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1890000000000000003",
+     "text": "note ext",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_505",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/505/pu/vid/avc1/1280x720/high.mp4?tag=12",
+      "https://pbs.twimg.com/media/P506.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/505/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1890000000000000004",
+     "text": "note no media",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": null,
+     "mediaUrls": [],
+     "thumbnailUrl": null,
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1890000000000000005",
+     "text": "note empty",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": null,
+     "mediaUrls": [],
+     "thumbnailUrl": null,
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    }
+   ],
+   "cursorTop": null,
+   "cursorBottom": null
+  },
+  "search_page2_replace_cursors": {
+   "tweets": [
+    {
+     "id": "1870000000000000001",
+     "text": "page 2 a",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_301",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/301/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/301/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1870000000000000002",
+     "text": "page 2 b",
+     "userHandle": "@bob_new",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/2002/new_normal.jpg",
+     "mediaKey": "3_302",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P302.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P302.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    }
+   ],
+   "cursorTop": null,
+   "cursorBottom": null
+  },
+  "search_retweets_quotes": {
+   "tweets": [
+    {
+     "id": "1880000000000000100",
+     "text": "original with video",
+     "userHandle": "@carol",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "mediaKey": "7_401",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/401/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/401/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": true,
+     "favoriteCount": 9001,
+     "replyCount": 20,
+     "retweetCount": 300,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1880000000000000100",
+     "text": "original with video",
+     "userHandle": "@carol",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "mediaKey": "7_401",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/401/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/401/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": true,
+     "favoriteCount": 9001,
+     "replyCount": 20,
+     "retweetCount": 300,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1880000000000000200",
+     "text": "original by new-shape user",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_402",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P402.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P402.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1880000000000000100",
+     "text": "original with video",
+     "userHandle": "@carol",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "mediaKey": "7_401",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/401/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/401/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": true,
+     "favoriteCount": 9001,
+     "replyCount": 20,
+     "retweetCount": 300,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1880000000000000005",
+     "text": "RT gone",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_405",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P405.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P405.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1880000000000000006",
+     "text": "RT empty",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_406",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P406.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P406.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1880000000000000007",
+     "text": "look at this https://t.co/q",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": null,
+     "mediaUrls": [],
+     "thumbnailUrl": null,
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1880000000000000008",
+     "text": "quote + own video",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_408",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/408/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/408/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1880000000000000100",
+     "text": "original with video",
+     "userHandle": "@carol",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "mediaKey": "7_401",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/401/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/401/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": true,
+     "favoriteCount": 9001,
+     "replyCount": 20,
+     "retweetCount": 300,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    }
+   ],
+   "cursorTop": null,
+   "cursorBottom": "rt-bottom"
+  },
+  "search_visibility_results": {
+   "tweets": [
+    {
+     "id": "1860000000000000002",
+     "text": "alt",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_202",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P202.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P202.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1860000000000000006",
+     "text": "bare wrapper",
+     "userHandle": "@carol",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "mediaKey": "3_206",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P206.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P206.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1860000000000000007",
+     "text": "plain after",
+     "userHandle": "@carol",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "mediaKey": "3_207",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P207.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P207.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    }
+   ],
+   "cursorTop": "vis-top",
+   "cursorBottom": "vis-bottom"
+  },
+  "usertweets_new_timeline_shape": {
+   "tweets": [],
+   "cursorTop": null,
+   "cursorBottom": null
+  },
+  "usertweets_timeline_v2_no_pin": {
+   "tweets": [
+    {
+     "id": "1950000000000000002",
+     "text": "latest",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "7_1002",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/1002/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/1002/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1950000000000000003",
+     "text": "thread 1",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_1003",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P1003.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P1003.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1950000000000000004",
+     "text": "thread 2",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_1004",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P1004.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P1004.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    },
+    {
+     "id": "1880000000000000100",
+     "text": "original with video",
+     "userHandle": "@carol",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "mediaKey": "7_401",
+     "mediaUrls": [
+      "https://video.twimg.com/ext_tw_video/401/pu/vid/avc1/1280x720/high.mp4?tag=12"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/ext_tw_video_thumb/401/pu/img/thumb.jpg",
+     "isVideo": true,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": true,
+     "favoriteCount": 9001,
+     "replyCount": 20,
+     "retweetCount": 300,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    }
+   ],
+   "cursorTop": "ut-top",
+   "cursorBottom": "ut-bottom"
+  },
+  "usertweets_timeline_v2_with_pin": {
+   "tweets": [
+    {
+     "id": "1950000000000000001",
+     "text": "pinned",
+     "userHandle": "@alice_media",
+     "userAvatarUrl": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "mediaKey": "3_1001",
+     "mediaUrls": [
+      "https://pbs.twimg.com/media/P1001.jpg"
+     ],
+     "thumbnailUrl": "https://pbs.twimg.com/media/P1001.jpg",
+     "isVideo": false,
+     "createdAtMillis": null,
+     "createdAtIsUtc": null,
+     "source": null,
+     "isLiked": false,
+     "favoriteCount": 42,
+     "replyCount": 5,
+     "retweetCount": 7,
+     "isRetweeted": false,
+     "viewCount": 1200,
+     "isBookmarked": false
+    }
+   ],
+   "cursorTop": null,
+   "cursorBottom": null
+  },
+  "usertweets_unavailable": {
+   "tweets": [],
+   "cursorTop": null,
+   "cursorBottom": null
+  }
+ }
+}

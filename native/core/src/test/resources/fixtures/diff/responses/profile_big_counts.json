@@ -1,0 +1,23 @@
+{
+ "data": {
+  "user": {
+   "result": {
+    "__typename": "User",
+    "id": "VXNlcjo8008",
+    "rest_id": "8008",
+    "affiliates_highlighted_label": {},
+    "has_graduated_access": true,
+    "is_blue_verified": false,
+    "profile_image_shape": "Circle",
+    "legacy": {
+     "screen_name": "big",
+     "name": "Big",
+     "description": "",
+     "followers_count": 223456789,
+     "friends_count": 0,
+     "profile_image_url_https": "https://pbs.twimg.com/profile_images/8008/b_normal.jpg"
+    }
+   }
+  }
+ }
+}
