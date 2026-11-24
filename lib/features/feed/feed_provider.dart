@@ -81,6 +81,26 @@ Tweet readLiveTweet(WidgetRef ref, Tweet tweet) {
 }
 
 class FeedNotifier extends AsyncNotifier<FeedState> {
+  int _viewIndex = 0;
+
+  /// The feed screen reports which item the user is on, so a background
+  /// refresh never reshuffles what is on screen.
+  void reportViewIndex(int index) {
+    if (index >= 0) _viewIndex = index;
+  }
+
+  /// How many leading items a background refresh must leave untouched: the
+  /// item being watched plus the next one, and never fewer than two.
+  static int protectedHeadLength({
+    required int viewIndex,
+    required int currentLength,
+    required bool resetHead,
+  }) {
+    if (resetHead) return 0;
+    final wanted = viewIndex + 2 < 2 ? 2 : viewIndex + 2;
+    return wanted > currentLength ? currentLength : wanted;
+  }
+
   List<Tweet> _runDiscoveryPipeline(
     List<Tweet> freshPool,
     List<Tweet> localPool,
@@ -276,14 +296,20 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
             ? await Repository.getPlayedCountsByUser()
             : const <String, int>{};
 
-        // PROTECT THE ACTIVE VIDEO: If user is at index 0, protect index 0 from being swapped.
-        // We protect up to 2 items to ensure the "next" item also doesn't jump unexpectedly.
+        // PROTECT THE ACTIVE VIDEO: everything up to the item the user is
+        // watching, plus the next one, keeps its place. Protecting only the
+        // first two swapped the video under the user when the refresh
+        // finished after they had already scrolled further.
         final processed = _runDiscoveryPipeline(
           freshTagged,
           localTagged,
           settings,
           playedByUser,
-          protectedIndex: resetHead ? 0 : 2,
+          protectedIndex: protectedHeadLength(
+            viewIndex: _viewIndex,
+            currentLength: current.tweets.length,
+            resetHead: resetHead,
+          ),
           currentTweets: resetHead ? [] : current.tweets,
         );
 

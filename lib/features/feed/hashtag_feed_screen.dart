@@ -1,13 +1,12 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/navigation/navigation_provider.dart';
-import '../player/player_pool_provider.dart';
 import '../player/widgets/media_container.dart';
 import '../../core/models/tweet.dart';
 import '../settings/settings_provider.dart';
 import '../settings/settings_screen.dart';
 import 'hashtag_provider.dart';
+import 'widgets/media_pager.dart';
 import 'widgets/tweet_text_overlay.dart';
 
 class HashtagListScreen extends ConsumerWidget {
@@ -146,64 +145,22 @@ class HashtagMediaFeedScreen extends ConsumerStatefulWidget {
 class _HashtagMediaFeedScreenState
     extends ConsumerState<HashtagMediaFeedScreen> {
   final PageController _pageController = PageController();
-  int _currentIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController.addListener(_handleScroll);
-  }
 
   @override
   void dispose() {
-    _pageController.removeListener(_handleScroll);
     _pageController.dispose();
     super.dispose();
   }
 
-  void _handleScroll() {
-    if (!_pageController.hasClients) return;
-    final page = _pageController.page?.round() ?? 0;
-    if (page != _currentIndex) {
-      setState(() {
-        _currentIndex = page;
-      });
-      _managePool();
-
-      final feedAsync = ref.read(hashtagMediaProvider(widget.hashtag));
-      if (feedAsync.hasValue) {
-        final tweets = feedAsync.value!.tweets;
-        final settings = ref.read(settingsProvider);
-        if (page >= tweets.length - settings.lazyLoadThreshold &&
-            !feedAsync.value!.isLoadingMore) {
-          ref.read(hashtagMediaProvider(widget.hashtag).notifier).fetchMore();
-        }
-      }
+  void _onIndexChanged(int index) {
+    final feedAsync = ref.read(hashtagMediaProvider(widget.hashtag));
+    if (!feedAsync.hasValue) return;
+    final tweets = feedAsync.value!.tweets;
+    final settings = ref.read(settingsProvider);
+    if (index >= tweets.length - settings.lazyLoadThreshold &&
+        !feedAsync.value!.isLoadingMore) {
+      ref.read(hashtagMediaProvider(widget.hashtag).notifier).fetchMore();
     }
-  }
-
-  void _managePool() {
-    Future.microtask(() {
-      if (!mounted) return;
-      final feedAsync = ref.read(hashtagMediaProvider(widget.hashtag));
-      final state = feedAsync.value;
-      if (state == null) return;
-      final tweets = state.tweets;
-
-      final pool = ref.read(playerPoolProvider.notifier);
-      final activeIds = <String>{};
-
-      for (int i = _currentIndex - 1; i <= _currentIndex + 3; i++) {
-        if (i >= 0 && i < tweets.length) {
-          final tweet = tweets[i];
-          activeIds.add(tweet.id);
-          if (tweet.isVideo && tweet.mediaUrls.isNotEmpty) {
-            pool.warmup(tweet.id, tweet.mediaUrls.first);
-          }
-        }
-      }
-      pool.cleanupExcept(activeIds);
-    });
   }
 
   @override
@@ -228,7 +185,7 @@ class _HashtagMediaFeedScreenState
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () {
-              _pageController.jumpToPage(0);
+              if (_pageController.hasClients) _pageController.jumpToPage(0);
               ref.read(hashtagMediaProvider(widget.hashtag).notifier).refresh();
             },
           ),
@@ -250,34 +207,19 @@ class _HashtagMediaFeedScreenState
                     style: TextStyle(color: Colors.white70)));
           }
 
-          _managePool();
-
           return Stack(
             children: [
-              PageView.builder(
+              MediaPager(
+                tweets: tweets,
                 controller: _pageController,
-                scrollDirection: Axis.vertical,
-                itemCount: tweets.length,
-                itemBuilder: (context, index) {
-                  final settings = ref.read(settingsProvider);
+                // The hashtag feed never precached images.
+                precacheImages: false,
+                onIndexChanged: _onIndexChanged,
+                itemBuilder: (context, tweet, isVisible, onPlaybackError) {
                   return HashtagFeedItem(
-                    key: ValueKey('hash_feed_${tweets[index].id}'),
-                    tweet: tweets[index],
-                    isVisible: index == _currentIndex,
-                    onPlaybackError: () {
-                      if (index == _currentIndex && mounted) {
-                        Future.delayed(
-                            Duration(seconds: settings.autoSkipDelaySeconds),
-                            () {
-                          if (mounted && _currentIndex == index) {
-                            _pageController.nextPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        });
-                      }
-                    },
+                    tweet: tweet,
+                    isVisible: isVisible,
+                    onPlaybackError: onPlaybackError,
                   );
                 },
               ),

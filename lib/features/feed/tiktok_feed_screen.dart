@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../player/player_pool_provider.dart';
 import 'feed_provider.dart';
 import '../player/widgets/media_container.dart';
 import '../../core/models/tweet.dart';
@@ -12,6 +11,7 @@ import '../auth/login_screen.dart';
 import 'bookmarks_screen.dart';
 import '../../core/client/account_provider.dart';
 import '../../core/navigation/navigation_provider.dart';
+import 'widgets/media_pager.dart';
 import 'widgets/tweet_text_overlay.dart';
 
 class TiktokFeedScreen extends ConsumerStatefulWidget {
@@ -23,78 +23,30 @@ class TiktokFeedScreen extends ConsumerStatefulWidget {
 
 class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
   final PageController _pageController = PageController();
-  int _currentIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController.addListener(_handleScroll);
-    // Initial pool warmup for first few videos
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _managePool();
-    });
-  }
 
   @override
   void dispose() {
-    _pageController.removeListener(_handleScroll);
     _pageController.dispose();
     super.dispose();
   }
 
-  void _handleScroll() {
-    if (!_pageController.hasClients) return;
-    final page = _pageController.page?.round() ?? 0;
-    if (page != _currentIndex) {
-      setState(() {
-        _currentIndex = page;
-      });
-      _managePool();
+  /// Runs once per landed page, not on every scroll tick.
+  void _onIndexChanged(int index) {
+    final notifier = ref.read(feedNotifierProvider.notifier);
+    notifier.reportViewIndex(index);
 
-      final feedAsync = ref.read(feedNotifierProvider);
-      if (feedAsync.hasValue) {
-        final tweets = feedAsync.value!.tweets;
+    final feedAsync = ref.read(feedNotifierProvider);
+    if (!feedAsync.hasValue) return;
+    final tweets = feedAsync.value!.tweets;
 
-        if (page < tweets.length) {
-          Repository.markMediaAsPlayed(tweets[page].id);
-        }
-
-        final settings = ref.read(settingsProvider);
-        if (page >= tweets.length - settings.lazyLoadThreshold &&
-            !feedAsync.value!.isRefreshing) {
-          ref.read(feedNotifierProvider.notifier).fetchMore();
-        }
-      }
+    if (index < tweets.length) {
+      Repository.markMediaAsPlayed(tweets[index].id);
     }
-  }
 
-  void _managePool() {
-    try {
-      final feedAsync = ref.read(feedNotifierProvider);
-      final state = feedAsync.value;
-      if (state == null) return;
-      final tweets = state.tweets;
-
-      final pool = ref.read(playerPoolProvider.notifier);
-      final activeIds = <String>{};
-
-      for (int i = _currentIndex - 1; i <= _currentIndex + 3; i++) {
-        if (i >= 0 && i < tweets.length) {
-          final tweet = tweets[i];
-          activeIds.add(tweet.id);
-
-          if (tweet.isVideo && tweet.mediaUrls.isNotEmpty) {
-            pool.warmup(tweet.id, tweet.mediaUrls.first);
-          } else if (tweet.mediaUrls.isNotEmpty) {
-            for (final url in tweet.mediaUrls) {
-              precacheImage(NetworkImage(url), context);
-            }
-          }
-        }
-      }
-      pool.cleanupExcept(activeIds);
-    } catch (e) {
-      debugPrint('XFLOW: Error in _managePool: $e');
+    final settings = ref.read(settingsProvider);
+    if (index >= tweets.length - settings.lazyLoadThreshold &&
+        !feedAsync.value!.isRefreshing) {
+      notifier.fetchMore();
     }
   }
 
@@ -107,7 +59,8 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
         leading: IconButton(
           icon: const Icon(Icons.refresh),
           onPressed: () {
-            _pageController.jumpToPage(0);
+            if (_pageController.hasClients) _pageController.jumpToPage(0);
+            ref.read(feedNotifierProvider.notifier).reportViewIndex(0);
             ref.read(feedNotifierProvider.notifier).refresh();
           },
         ),
@@ -181,28 +134,16 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
         }
         return Stack(
           children: [
-            PageView.builder(
+            MediaPager(
+              tweets: tweets,
               controller: _pageController,
-              scrollDirection: Axis.vertical,
-              itemCount: tweets.length,
-              itemBuilder: (context, index) {
-                final settings = ref.read(settingsProvider);
+              isActive: isScreenActive,
+              onIndexChanged: _onIndexChanged,
+              itemBuilder: (context, tweet, isVisible, onPlaybackError) {
                 return TiktokFeedItem(
-                  tweet: tweets[index],
-                  isVisible: index == _currentIndex && isScreenActive,
-                  onPlaybackError: () {
-                    if (index == _currentIndex && mounted) {
-                      Future.delayed(
-                          Duration(seconds: settings.autoSkipDelaySeconds), () {
-                        if (mounted && _currentIndex == index) {
-                          _pageController.nextPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        }
-                      });
-                    }
-                  },
+                  tweet: tweet,
+                  isVisible: isVisible,
+                  onPlaybackError: onPlaybackError,
                 );
               },
             ),

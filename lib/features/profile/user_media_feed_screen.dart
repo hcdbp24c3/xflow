@@ -1,11 +1,10 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/navigation/navigation_provider.dart';
-import '../player/player_pool_provider.dart';
 import 'profile_provider.dart';
 import '../player/widgets/media_container.dart';
 import '../../core/models/tweet.dart';
+import '../feed/widgets/media_pager.dart';
 import '../feed/widgets/tweet_text_overlay.dart';
 import '../settings/settings_provider.dart';
 import '../settings/settings_screen.dart';
@@ -29,75 +28,31 @@ class UserMediaFeedScreen extends ConsumerStatefulWidget {
 
 class _UserMediaFeedScreenState extends ConsumerState<UserMediaFeedScreen> {
   late PageController _pageController;
-  late int _currentIndex;
   bool _initialized = false;
 
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
-    _pageController.addListener(_handleScroll);
   }
 
   @override
   void dispose() {
-    _pageController.removeListener(_handleScroll);
     _pageController.dispose();
     super.dispose();
   }
 
-  void _handleScroll() {
-    if (!_pageController.hasClients) return;
-    final page = _pageController.page?.round() ?? 0;
-    if (page != _currentIndex) {
-      setState(() {
-        _currentIndex = page;
-      });
-      _managePool();
-
-      final feedAsync = ref.read(userMediaNotifierProvider(widget.screenName));
-      if (feedAsync.hasValue) {
-        final tweets = feedAsync.value!.tweets;
-        final settings = ref.read(settingsProvider);
-        if (page >= tweets.length - settings.lazyLoadThreshold &&
-            !feedAsync.value!.isLoadingMore) {
-          ref
-              .read(userMediaNotifierProvider(widget.screenName).notifier)
-              .fetchMore();
-        }
-      }
+  void _onIndexChanged(int index) {
+    final feedAsync = ref.read(userMediaNotifierProvider(widget.screenName));
+    if (!feedAsync.hasValue) return;
+    final tweets = feedAsync.value!.tweets;
+    final settings = ref.read(settingsProvider);
+    if (index >= tweets.length - settings.lazyLoadThreshold &&
+        !feedAsync.value!.isLoadingMore) {
+      ref
+          .read(userMediaNotifierProvider(widget.screenName).notifier)
+          .fetchMore();
     }
-  }
-
-  void _managePool() {
-    // Use a microtask to avoid building-phase conflicts
-    Future.microtask(() {
-      if (!mounted) return;
-      final feedAsync = ref.read(userMediaNotifierProvider(widget.screenName));
-      final state = feedAsync.value;
-      if (state == null) return;
-      final tweets = state.tweets;
-
-      final pool = ref.read(playerPoolProvider.notifier);
-      final activeIds = <String>{};
-
-      for (int i = _currentIndex - 1; i <= _currentIndex + 3; i++) {
-        if (i >= 0 && i < tweets.length) {
-          final tweet = tweets[i];
-          activeIds.add(tweet.id);
-
-          if (tweet.isVideo && tweet.mediaUrls.isNotEmpty) {
-            pool.warmup(tweet.id, tweet.mediaUrls.first);
-          } else if (tweet.mediaUrls.isNotEmpty) {
-            for (final url in tweet.mediaUrls) {
-              precacheImage(NetworkImage(url), context);
-            }
-          }
-        }
-      }
-      pool.cleanupExcept(activeIds);
-    });
   }
 
   @override
@@ -118,20 +73,11 @@ class _UserMediaFeedScreenState extends ConsumerState<UserMediaFeedScreen> {
           }
         }
 
-        if (targetIndex < tweets.length) {
-          if (_pageController.hasClients) {
-            _pageController.jumpToPage(targetIndex);
-          }
-          setState(() {
-            _currentIndex = targetIndex;
-          });
+        // The pager picks the new page up from the jump itself.
+        if (targetIndex < tweets.length && _pageController.hasClients) {
+          _pageController.jumpToPage(targetIndex);
         }
         _initialized = true;
-      }
-
-      // Always manage pool when data changes
-      if (next.hasValue) {
-        _managePool();
       }
     });
     return Scaffold(
@@ -190,36 +136,18 @@ class _UserMediaFeedScreenState extends ConsumerState<UserMediaFeedScreen> {
             );
           }
 
-          // Ensure pool is warmed up for current view
-          _managePool();
-
           return Stack(
             children: [
-              PageView.builder(
+              MediaPager(
+                tweets: tweets,
                 controller: _pageController,
-                scrollDirection: Axis.vertical,
-                itemCount: tweets.length,
-                itemBuilder: (context, index) {
-                  final settings = ref.read(settingsProvider);
-                  final tweet = tweets[index];
+                initialIndex: widget.initialIndex,
+                onIndexChanged: _onIndexChanged,
+                itemBuilder: (context, tweet, isVisible, onPlaybackError) {
                   return UserMediaFeedItem(
-                    key: ValueKey('user_feed_${tweet.id}'),
                     tweet: tweet,
-                    isVisible: index == _currentIndex,
-                    onPlaybackError: () {
-                      if (index == _currentIndex && mounted) {
-                        Future.delayed(
-                            Duration(seconds: settings.autoSkipDelaySeconds),
-                            () {
-                          if (mounted && _currentIndex == index) {
-                            _pageController.nextPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        });
-                      }
-                    },
+                    isVisible: isVisible,
+                    onPlaybackError: onPlaybackError,
                   );
                 },
               ),

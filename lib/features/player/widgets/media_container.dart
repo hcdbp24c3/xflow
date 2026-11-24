@@ -43,6 +43,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
   int _imageIndex = 0;
   int _retryCount = 0;
   bool _isAutoFullscreenDone = false;
+  PlayerInstance? _boundInstance;
   StreamSubscription? _errorSubscription;
   StreamSubscription? _completedSubscription;
 
@@ -91,6 +92,36 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
         }
       }
     }
+  }
+
+  /// Listens to [instance]'s events. If the pool hands this tweet a new
+  /// player (the old one was disposed and warmed up again), the listeners
+  /// move over to it instead of staying on the dead one.
+  void _bindPlayer(PlayerInstance instance) {
+    if (identical(_boundInstance, instance)) return;
+    _unbindPlayer();
+    _boundInstance = instance;
+    _isPlaying = instance.player.state.playing;
+    _errorSubscription = instance.player.stream.error.listen(_handleError);
+    _completedSubscription =
+        instance.player.stream.completed.listen((completed) {
+      if (completed) _handleCompleted();
+    });
+    _playingSubscription = instance.player.stream.playing.listen((playing) {
+      if (!mounted || playing == _isPlaying) return;
+      setState(() => _isPlaying = playing);
+    });
+  }
+
+  void _unbindPlayer() {
+    _errorSubscription?.cancel();
+    _completedSubscription?.cancel();
+    _playingSubscription?.cancel();
+    _errorSubscription = null;
+    _completedSubscription = null;
+    _playingSubscription = null;
+    _boundInstance = null;
+    _hasAutoPlayed = false;
   }
 
   @override
@@ -362,23 +393,17 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
       );
     }
 
-    final pool = ref.watch(playerPoolProvider);
-    final instance = pool[widget.tweet.id];
+    // Watch only this tweet's player. Watching the whole pool rebuilt every
+    // item on screen each time any player was created or disposed.
+    final instance = ref.watch(
+        playerPoolProvider.select((pool) => pool[widget.tweet.id]));
 
     if (instance == null) {
+      _unbindPlayer();
       return const Center(child: CircularProgressIndicator());
     }
 
-    // Subscribe to events if not already doing so
-    _errorSubscription ??= instance.player.stream.error.listen(_handleError);
-    _completedSubscription ??=
-        instance.player.stream.completed.listen((completed) {
-      if (completed) _handleCompleted();
-    });
-    _playingSubscription ??= instance.player.stream.playing.listen((playing) {
-      if (!mounted) return;
-      setState(() => _isPlaying = playing);
-    });
+    _bindPlayer(instance);
 
     // Auto-play on first build when visible (warmup opens with play:false)
     if (widget.isVisible && !instance.player.state.playing && !_hasAutoPlayed) {
