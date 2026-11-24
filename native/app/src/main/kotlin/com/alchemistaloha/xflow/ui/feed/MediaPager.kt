@@ -26,6 +26,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
 import com.alchemistaloha.xflow.core.model.Tweet
@@ -97,6 +98,7 @@ fun MediaPager(
     precacheImages: Boolean = true,
     itemContent: @Composable (tweet: Tweet, isVisible: Boolean, onPlaybackError: () -> Unit) -> Unit,
 ) {
+    if (isActive) KeepScreenOn()
     val context = LocalContext.current
     val density = LocalDensity.current.density
     val scope = rememberCoroutineScope()
@@ -267,3 +269,27 @@ private class FeedPageFlingBehavior(
         return 0f
     }
 }
+
+
+/**
+ * Keeps the display awake while a media feed is on screen, so it does not dim or
+ * lock in the middle of a video. Feeds can be stacked (a profile feed opened over
+ * the main one), so the holders are counted: the flag is dropped only when the
+ * last feed leaves. The flag is on the window's view, so it stops applying by
+ * itself when the app goes to the background.
+ */
+@Composable
+private fun KeepScreenOn() {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        screenOnHolders++
+        view.keepScreenOn = true
+        onDispose {
+            screenOnHolders = (screenOnHolders - 1).coerceAtLeast(0)
+            if (screenOnHolders == 0) view.keepScreenOn = false
+        }
+    }
+}
+
+/** Feeds currently on screen that want the display kept awake. Main thread only. */
+private var screenOnHolders = 0
