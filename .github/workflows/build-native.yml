@@ -12,6 +12,11 @@ on:
       - 'native/**'
       - '.github/workflows/build-native.yml'
   workflow_dispatch:
+    inputs:
+      dump_classpath:
+        description: 'Also upload the compile classpath (for native/tools/check-app.sh)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -43,11 +48,13 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Dump compile classpath
+        if: github.event_name == 'workflow_dispatch' && inputs.dump_classpath
         run: |
           ./gradlew :app:dumpCompileClasspath --stacktrace
           cp "$ANDROID_HOME/platforms/android-36/android.jar" app/build/classpath-dump/android.jar || true
 
       - name: Upload compile classpath
+        if: github.event_name == 'workflow_dispatch' && inputs.dump_classpath
         uses: actions/upload-artifact@v4
         with:
           name: compile-classpath

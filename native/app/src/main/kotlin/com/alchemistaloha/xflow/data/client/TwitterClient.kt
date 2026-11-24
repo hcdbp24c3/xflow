@@ -60,7 +60,7 @@ class TwitterClient {
          * (the app coming back to the foreground). `false` keeps that
          * behaviour; `true` gives the turn back on such an error.
          */
-        private const val RELEASE_TURN_ON_ERROR = false
+        private const val RELEASE_TURN_ON_ERROR = true
 
         // Rate limiting prevention
         private val queueLock = Any()
