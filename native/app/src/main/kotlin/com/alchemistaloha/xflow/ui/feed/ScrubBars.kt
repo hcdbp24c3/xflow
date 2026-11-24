@@ -136,13 +136,14 @@ private suspend fun AwaitPointerEventScope.awaitScrub(
  * recomposes nothing.
  *
  * [onTapAbove] gets a tap that landed in the upper part of the touch strip, away from the
- * line: that is still a tap on the video.
+ * line: that is still a tap on the video. It receives where in the strip the finger lifted
+ * (px) and when it went down, so the caller can tell a double tap from a single one.
  */
 @Composable
 internal fun TiktokSeekBar(
     player: ExoPlayer,
     active: Boolean,
-    onTapAbove: () -> Unit,
+    onTapAbove: (position: Offset, downTimeMs: Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val position = remember(player) { mutableLongStateOf(0L) }
@@ -187,7 +188,7 @@ internal fun TiktokSeekBar(
                                 if (BottomEdgeLayout.tapSeeks((size.height - last.y) / density)) {
                                     ScrubMath.seekTargetMs(ScrubMath.seekFraction(last.x, width), total)
                                 } else {
-                                    onTapAboveNow()
+                                    onTapAboveNow(last, down.uptimeMillis)
                                     null
                                 }
                             ScrubEnd.ABANDONED -> null
