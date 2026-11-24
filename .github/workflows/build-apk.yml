@@ -37,7 +37,11 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          # Pinned to the version the last release was built with. The
+          # project's Gradle 8.14 is rejected by newer stable Flutter
+          # (3.50 requires Gradle 9.3.1 or later).
           channel: 'stable'
+          flutter-version: '3.47.5'
           cache: true
 
       - name: Install dependencies
