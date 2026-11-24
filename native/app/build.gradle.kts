@@ -1,3 +1,7 @@
+import java.io.File
+import java.util.Properties
+import org.gradle.api.attributes.Attribute
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -37,7 +41,7 @@ android {
         create("release") {
             val keyPropertiesFile = rootProject.file("key.properties")
             if (keyPropertiesFile.exists()) {
-                val keyProperties = java.util.Properties()
+                val keyProperties = Properties()
                 keyPropertiesFile.inputStream().use { keyProperties.load(it) }
                 storeFile = file(keyProperties["storeFile"] as String)
                 storePassword = keyProperties["storePassword"] as String
@@ -133,7 +137,7 @@ tasks.register("dumpCompileClasspath") {
     val jars = configurations.named("releaseCompileClasspath").map { cfg ->
         cfg.incoming.artifactView {
             attributes.attribute(
-                org.gradle.api.attributes.Attribute.of("artifactType", String::class.java),
+                Attribute.of("artifactType", String::class.java),
                 "android-classes-jar",
             )
         }.files
@@ -148,7 +152,7 @@ tasks.register("dumpCompileClasspath") {
         jars.get().files.forEachIndexed { i, f ->
             if (f.isFile) {
                 val tag = f.parentFile?.parentFile?.name.orEmpty().take(40)
-                f.copyTo(java.io.File(out, "%03d-%s-%s".format(i, tag, f.name)), overwrite = true)
+                f.copyTo(File(out, "%03d-%s-%s".format(i, tag, f.name)), overwrite = true)
             }
         }
     }
