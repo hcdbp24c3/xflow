@@ -51,5 +51,6 @@ data class SettingsState(
     val autoSkipDelaySeconds: Int = 2,
     val lazyLoadThreshold: Int = 10,
     val mediaDeduplicationWindow: Int = 50,
-    val videoEndAction: VideoEndAction = VideoEndAction.playNext,
+    // A finished video loops, like TikTok. "Auto next" (playNext) is opt-in.
+    val videoEndAction: VideoEndAction = VideoEndAction.replay,
 )

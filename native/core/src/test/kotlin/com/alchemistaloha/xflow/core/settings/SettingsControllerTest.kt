@@ -74,7 +74,55 @@ class SettingsControllerTest {
         )
         controller.load()
         assertEquals(FeedSort.latest, controller.state.value.fetchStrategy)
+        assertEquals(VideoEndAction.replay, controller.state.value.videoEndAction)
+    }
+
+    @Test
+    fun `auto next is off by default and a finished video loops`() {
+        val controller = SettingsController(MapSettingsStorage())
+        controller.load()
+        assertEquals(VideoEndAction.replay, controller.state.value.videoEndAction)
+        assertEquals(false, controller.autoNext)
+    }
+
+    @Test
+    fun `a play next stored before the default changed is turned off once`() {
+        val storage = MapSettingsStorage(mutableMapOf("videoEndAction" to VideoEndAction.playNext.ordinal))
+        val first = SettingsController(storage)
+        first.load()
+        assertEquals(VideoEndAction.replay, first.state.value.videoEndAction)
+        assertEquals(VideoEndAction.replay.ordinal, storage.getInt("videoEndAction"))
+        assertEquals(true, storage.getBool(AUTO_NEXT_OFF_MIGRATED))
+
+        // Turned on again by the user: the next start keeps it.
+        first.setAutoNext(true)
+        val second = SettingsController(storage)
+        second.load()
+        assertEquals(VideoEndAction.playNext, second.state.value.videoEndAction)
+        assertEquals(true, second.autoNext)
+    }
+
+    @Test
+    fun `a stored pause survives the default change`() {
+        val storage = MapSettingsStorage(mutableMapOf("videoEndAction" to VideoEndAction.pause.ordinal))
+        val controller = SettingsController(storage)
+        controller.load()
+        assertEquals(VideoEndAction.pause, controller.state.value.videoEndAction)
+        assertEquals(false, controller.autoNext)
+    }
+
+    @Test
+    fun `the auto next switch and After Video Ends are one setting`() {
+        val storage = MapSettingsStorage()
+        val controller = SettingsController(storage)
+        controller.load()
+        controller.setAutoNext(true)
         assertEquals(VideoEndAction.playNext, controller.state.value.videoEndAction)
+        assertEquals(VideoEndAction.playNext.ordinal, storage.getInt("videoEndAction"))
+        controller.setAutoNext(false)
+        assertEquals(VideoEndAction.replay, controller.state.value.videoEndAction)
+        controller.updateDiscoveryParam(videoEndAction = VideoEndAction.playNext)
+        assertEquals(true, controller.autoNext)
     }
 
     @Test
@@ -130,7 +178,11 @@ class SettingsControllerTest {
         controller.updateDiscoveryParam(saturationThreshold = 4)
 
         assertEquals(before.copy(saturationThreshold = 4), controller.state.value)
-        assertEquals(mapOf<String, Any>("saturationThreshold" to 4), storage.values)
+        // Besides the one-time marker written by load().
+        assertEquals(
+            mapOf<String, Any>("saturationThreshold" to 4, AUTO_NEXT_OFF_MIGRATED to true),
+            storage.values,
+        )
     }
 
     @Test
@@ -161,7 +213,8 @@ class SettingsControllerTest {
         )
         val known = SettingsKeys.INT_KEYS + SettingsKeys.BOOL_KEYS + SettingsKeys.DOUBLE_KEYS +
             SettingsKeys.STRING_LIST_KEYS
-        assertEquals(known, storage.values.keys)
+        // The one-time marker is native-only, not one of the Flutter keys.
+        assertEquals(known + AUTO_NEXT_OFF_MIGRATED, storage.values.keys)
         assertEquals(37, known.size)
     }
 }

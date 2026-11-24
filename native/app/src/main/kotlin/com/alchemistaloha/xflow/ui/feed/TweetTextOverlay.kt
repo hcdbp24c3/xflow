@@ -167,8 +167,8 @@ private fun ActionButtons(original: Tweet, onFullscreen: (() -> Unit)?, isFullsc
     val isBookmarked = bookmarks.valueOrNull?.any { it.id == tweet.id } ?: tweet.isBookmarked
     var showReplies by remember { mutableStateOf(false) }
     var showMore by remember { mutableStateOf(false) }
-    // Full screen and subtitles for a video, translation for a post in another language.
-    val hasMore = (onFullscreen != null && tweet.isVideo) || canTranslate(original)
+    // Full screen, subtitles and auto next for a video, translation for a post in another language.
+    val hasMore = tweet.isVideo || canTranslate(original)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         // A fullscreen video in landscape has no room for it above the buttons.

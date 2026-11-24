@@ -18,9 +18,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import com.alchemistaloha.xflow.core.model.VideoEndAction
+import com.alchemistaloha.xflow.data.settings.SettingsStore
 import androidx.compose.material.icons.rounded.ClosedCaption
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.FullscreenExit
+import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -206,8 +209,9 @@ internal fun FeedMoreSheet(
     isFullscreen: Boolean,
     onDismiss: () -> Unit,
 ) {
-    val sheet = rememberDraggableSheetState(initialFraction = 0.42f, minFraction = 0.28f, maxFraction = 0.7f)
+    val sheet = rememberDraggableSheetState(initialFraction = 0.46f, minFraction = 0.28f, maxFraction = 0.7f)
     val prefs by ViewerPrefs.state.collectAsState()
+    val settings by SettingsStore.state.collectAsState()
     LaunchedEffect(tweet.id) { SubtitleStore.load(tweet) }
     val info = SubtitleStore.info(tweet.id)
     val picked = pickedTrack(info)
@@ -239,20 +243,7 @@ internal fun FeedMoreSheet(
                     subtitle = subtitleSummary(info, picked),
                     enabled = usable,
                     onTap = { ViewerPrefs.setSubtitlesOn(!prefs.subtitlesOn) },
-                    trailing = {
-                        Switch(
-                            checked = prefs.subtitlesOn,
-                            onCheckedChange = null,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = AppColors.accent,
-                                checkedBorderColor = Color.Transparent,
-                                uncheckedThumbColor = AppColors.textSecondary,
-                                uncheckedTrackColor = AppColors.surfaceHighest,
-                                uncheckedBorderColor = Color.Transparent,
-                            ),
-                        )
-                    },
+                                        trailing = { SheetSwitch(prefs.subtitlesOn) },
                 )
                 val tracks = (info as? SubtitleInfo.Available)?.tracks.orEmpty()
                 if (tracks.size > 1 && prefs.subtitlesOn) {
@@ -282,6 +273,21 @@ internal fun FeedMoreSheet(
                     }
                 }
             }
+            if (tweet.isVideo) {
+                // The same setting as Settings > Playback & Feed > "After Video Ends". It is read
+                // when a video ends, so it applies to the one playing now.
+                SheetRow(
+                    icon = Icons.Rounded.SkipNext,
+                    title = "Auto next",
+                    subtitle = when (settings.videoEndAction) {
+                        VideoEndAction.playNext -> "Plays the next post when a video ends"
+                        VideoEndAction.pause -> "Off · a finished video stops"
+                        VideoEndAction.replay -> "Off · a finished video loops"
+                    },
+                    onTap = { SettingsStore.setAutoNext(settings.videoEndAction != VideoEndAction.playNext) },
+                    trailing = { SheetSwitch(settings.videoEndAction == VideoEndAction.playNext) },
+                )
+            }
             if (canTranslate(tweet)) {
                 val state = TranslationStore[tweet.id]
                 val showing = state is TranslationState.Ready && state.showing
@@ -306,6 +312,23 @@ internal fun FeedMoreSheet(
             }
         }
     }
+}
+
+/** The switch at the end of a sheet row; the row takes the tap. */
+@Composable
+private fun SheetSwitch(checked: Boolean) {
+    Switch(
+        checked = checked,
+        onCheckedChange = null,
+        colors = SwitchDefaults.colors(
+            checkedThumbColor = Color.White,
+            checkedTrackColor = AppColors.accent,
+            checkedBorderColor = Color.Transparent,
+            uncheckedThumbColor = AppColors.textSecondary,
+            uncheckedTrackColor = AppColors.surfaceHighest,
+            uncheckedBorderColor = Color.Transparent,
+        ),
+    )
 }
 
 @Composable

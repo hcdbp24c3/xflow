@@ -359,16 +359,20 @@ fun TiktokMediaContainer(
                 buffering = state == Player.STATE_BUFFERING
                 if (state == Player.STATE_ENDED) {
                     if (!visibleNow) return
-                    // Exit fullscreen if active when the video completes
-                    if (Fullscreen.tweetId == tweetNow.id) exitFullscreen()
+                    // Read when the video ends, so the "Auto next" switch applies to the video
+                    // that is playing.
                     when (SettingsStore.state.value.videoEndAction) {
                         VideoEndAction.pause -> Unit // Already stopped at the end
+                        // The default: loop, also in full screen.
                         VideoEndAction.replay -> {
                             player.seekTo(0)
                             player.play()
                         }
-                        // Re-use the same callback for auto-advance
-                        VideoEndAction.playNext -> onPlaybackErrorNow?.invoke()
+                        // Auto next: leave full screen and re-use the skip callback.
+                        VideoEndAction.playNext -> {
+                            if (Fullscreen.tweetId == tweetNow.id) exitFullscreen()
+                            onPlaybackErrorNow?.invoke()
+                        }
                     }
                 }
             }

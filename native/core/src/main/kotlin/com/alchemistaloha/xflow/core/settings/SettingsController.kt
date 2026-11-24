@@ -40,6 +40,9 @@ object SettingsKeys {
     )
 }
 
+/** Set once the old "auto next" default has been turned off for an existing install. */
+const val AUTO_NEXT_OFF_MIGRATED = "autoNextDefaultOffMigrated"
+
 /**
  * Dart `SettingsNotifier`: holds the settings, loads them once and persists
  * every change under the same key names.
@@ -59,7 +62,16 @@ open class SettingsController(private val storage: SettingsStorage) {
         }
 
         val fetchStrategyIdx = prefs.getInt("fetchStrategy") ?: 0
-        val videoEndActionIdx = prefs.getInt("videoEndAction") ?: VideoEndAction.playNext.ordinal
+        // "Auto next" used to be the default. The first load after that changed turns a stored
+        // playNext back into a loop once, whether it was brought over from the Flutter app or
+        // picked by hand; from then on the stored choice is the user's own. "pause" is kept.
+        if (prefs.getBool(AUTO_NEXT_OFF_MIGRATED) != true) {
+            if (prefs.getInt("videoEndAction") == VideoEndAction.playNext.ordinal) {
+                prefs.setInt("videoEndAction", VideoEndAction.replay.ordinal)
+            }
+            prefs.setBool(AUTO_NEXT_OFF_MIGRATED, true)
+        }
+        val videoEndActionIdx = prefs.getInt("videoEndAction") ?: VideoEndAction.replay.ordinal
 
         _state.value = SettingsState(
             isInitialized = true,
@@ -100,7 +112,7 @@ open class SettingsController(private val storage: SettingsStorage) {
             autoSkipDelaySeconds = prefs.getInt("autoSkipDelaySeconds") ?: 2,
             lazyLoadThreshold = prefs.getInt("lazyLoadThreshold") ?: 10,
             mediaDeduplicationWindow = prefs.getInt("mediaDeduplicationWindow") ?: 50,
-            videoEndAction = VideoEndAction.values().getOrNull(videoEndActionIdx) ?: VideoEndAction.playNext,
+            videoEndAction = VideoEndAction.values().getOrNull(videoEndActionIdx) ?: VideoEndAction.replay,
         )
     }
 
@@ -234,6 +246,17 @@ open class SettingsController(private val storage: SettingsStorage) {
         }
         _state.value = _state.value.copy(filters = nextFilters)
         storage.setStringList("filters", nextFilters.map { it.name })
+    }
+
+    /** True when a finished video moves on to the next post. */
+    val autoNext: Boolean get() = _state.value.videoEndAction == VideoEndAction.playNext
+
+    /**
+     * The "Auto next" switch: on = play the next post when a video ends, off = loop the video.
+     * It is the same setting as "After Video Ends", so the two always agree.
+     */
+    fun setAutoNext(on: Boolean) {
+        updateDiscoveryParam(videoEndAction = if (on) VideoEndAction.playNext else VideoEndAction.replay)
     }
 
     fun toggleAutoplay(value: Boolean) {
