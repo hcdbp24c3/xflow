@@ -1,0 +1,326 @@
+{
+  "data": {
+    "search_by_raw_query": {
+      "search_timeline": {
+        "timeline": {
+          "instructions": [
+            {"type": "TimelineClearCache"},
+            {
+              "type": "TimelineAddEntries",
+              "entries": [
+                {
+                  "entryId": "cursor-top-9001",
+                  "content": {"entryType": "TimelineTimelineCursor", "value": "TOP_CURSOR", "cursorType": "Top"}
+                },
+                {
+                  "entryId": "tweet-1001",
+                  "content": {
+                    "entryType": "TimelineTimelineItem",
+                    "itemContent": {
+                      "itemType": "TimelineTweet",
+                      "tweet_results": {
+                        "result": {
+                          "__typename": "Tweet",
+                          "rest_id": "1001",
+                          "core": {
+                            "user_results": {
+                              "result": {
+                                "rest_id": "501",
+                                "legacy": {
+                                  "screen_name": "video_maker",
+                                  "profile_image_url_https": "https://img.example/avatars/video_maker_normal.jpg"
+                                }
+                              }
+                            }
+                          },
+                          "views": {"count": "12345", "state": "EnabledWithCount"},
+                          "legacy": {
+                            "created_at": "Wed Oct 10 20:19:24 +0000 2018",
+                            "full_text": "A video post https://t.example/v1",
+                            "favorited": true,
+                            "retweeted": false,
+                            "favorite_count": 321,
+                            "reply_count": 4,
+                            "retweet_count": 17,
+                            "entities": {
+                              "media": [
+                                {"type": "photo", "media_key": "3_ignored", "media_url_https": "https://img.example/ignored.jpg"}
+                              ]
+                            },
+                            "extended_entities": {
+                              "media": [
+                                {
+                                  "type": "video",
+                                  "media_key": "13_2001",
+                                  "media_url_https": "https://img.example/thumbs/2001.jpg",
+                                  "video_info": {
+                                    "variants": [
+                                      {"content_type": "application/x-mpegURL", "url": "https://video.example/2001/pl/master.m3u8"},
+                                      {"content_type": "video/mp4", "bitrate": 256000, "url": "https://video.example/2001/vid/320x568/low.mp4"},
+                                      {"content_type": "video/mp4", "bitrate": 2176000, "url": "https://video.example/2001/vid/720x1280/high.mp4"},
+                                      {"content_type": "video/mp4", "bitrate": 832000, "url": "https://video.example/2001/vid/480x852/mid.mp4"}
+                                    ]
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "entryId": "tweet-1002",
+                  "content": {
+                    "entryType": "TimelineTimelineItem",
+                    "itemContent": {
+                      "tweet_results": {
+                        "result": {
+                          "rest_id": "1002",
+                          "core": {
+                            "user_results": {
+                              "result": {
+                                "core": {"screen_name": "photo_taker"},
+                                "avatar": {"image_url": "https://img.example/avatars/photo_taker_normal.jpg"}
+                              }
+                            }
+                          },
+                          "legacy": {
+                            "created_at": "Thu Jan 02 03:04:05 +0000 2025",
+                            "full_text": "Three photos",
+                            "favorite_count": 9,
+                            "reply_count": 0,
+                            "retweet_count": 1,
+                            "retweeted": true,
+                            "views": {"count": "77"},
+                            "extended_entities": {
+                              "media": [
+                                {"type": "photo", "media_key": "3_3001", "media_url_https": "https://img.example/media/3001.jpg"},
+                                {"type": "photo", "media_key": "3_3002", "media_url_https": "https://img.example/media/3002.jpg"},
+                                {"type": "photo", "media_key": "3_3003", "media_url_https": "https://img.example/media/3003.jpg"}
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "entryId": "tweet-1003",
+                  "content": {
+                    "entryType": "TimelineTimelineItem",
+                    "itemContent": {
+                      "tweet_results": {
+                        "result": {
+                          "rest_id": "1003",
+                          "core": {"user_results": {"result": {"legacy": {"screen_name": "reposter"}}}},
+                          "legacy": {
+                            "created_at": "Fri Jan 03 00:00:00 +0000 2025",
+                            "full_text": "RT @original_author: The original post",
+                            "favorite_count": 0,
+                            "retweeted_status_result": {
+                              "result": {
+                                "rest_id": "900",
+                                "core": {
+                                  "user_results": {
+                                    "result": {
+                                      "legacy": {
+                                        "screen_name": "original_author",
+                                        "profile_image_url_https": "https://img.example/avatars/original_normal.jpg"
+                                      }
+                                    }
+                                  }
+                                },
+                                "legacy": {
+                                  "created_at": "Wed Jan 01 12:00:00 +0000 2025",
+                                  "full_text": "The original post",
+                                  "favorite_count": 5000,
+                                  "retweet_count": 250,
+                                  "reply_count": 30,
+                                  "extended_entities": {
+                                    "media": [
+                                      {"type": "photo", "media_key": "3_4001", "media_url_https": "https://img.example/media/4001.jpg"}
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "entryId": "tweet-1004",
+                  "content": {
+                    "entryType": "TimelineTimelineItem",
+                    "itemContent": {
+                      "tweet_results": {
+                        "result": {
+                          "rest_id": "1004",
+                          "core": {"user_results": {"result": {"legacy": {"screen_name": "writer"}}}},
+                          "legacy": {
+                            "created_at_ms": "1735689600000",
+                            "text": "Only words here",
+                            "favorite_count": 2
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "entryId": "tweet-1005",
+                  "content": {
+                    "entryType": "TimelineTimelineItem",
+                    "itemContent": {
+                      "tweet_results": {
+                        "result": {
+                          "__typename": "TweetWithVisibilityResults",
+                          "tweet_results": {
+                            "result": {
+                              "tweet": {
+                                "rest_id": "1005",
+                                "core": {"user_results": {"result": {"legacy": {"screen_name": "limited"}}}},
+                                "legacy": {
+                                  "created_at": "Sat Jan 04 00:00:00 +0000 2025",
+                                  "full_text": "A gif",
+                                  "extended_entities": {
+                                    "media": [
+                                      {
+                                        "type": "animated_gif",
+                                        "media_key": "16_5001",
+                                        "media_url_https": "https://img.example/thumbs/5001.jpg",
+                                        "video_info": {
+                                          "variants": [
+                                            {"content_type": "video/webm", "url": "https://video.example/5001/gif.webm"}
+                                          ]
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "entryId": "tweet-1006",
+                  "content": {
+                    "entryType": "TimelineTimelineItem",
+                    "itemContent": {
+                      "tweet_results": {
+                        "result": {
+                          "rest_id": "1006",
+                          "core": {"user_results": {"result": {"legacy": {"screen_name": "broken"}}}},
+                          "legacy": {
+                            "created_at": "Sat Jan 04 00:00:00 +0000 2025",
+                            "full_text": "A count that is not a number",
+                            "favorite_count": "many"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "entryId": "tweet-1007",
+                  "content": {
+                    "entryType": "TimelineTimelineItem",
+                    "itemContent": {
+                      "tweet_results": {
+                        "result": {
+                          "rest_id": "1007",
+                          "core": {"user_results": {"result": {"legacy": {"screen_name": "long_writer"}}}},
+                          "note_tweet": {
+                            "note_tweet_results": {
+                              "result": {
+                                "entity_set": {
+                                  "media": [
+                                    {"type": "photo", "media_key": "3_7001", "media_url_https": "https://img.example/media/7001.jpg"}
+                                  ]
+                                }
+                              }
+                            }
+                          },
+                          "legacy": {
+                            "created_at": "Sun Jan 05 00:00:00 +0000 2025",
+                            "full_text": "A long post with a picture in the note"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "entryId": "tweet-1008",
+                  "content": {
+                    "entryType": "TimelineTimelineItem",
+                    "itemContent": {"itemType": "TimelineTweet", "tweet_results": {}}
+                  }
+                },
+                {
+                  "entryId": "promoted-tweet-1009",
+                  "content": {"entryType": "TimelineTimelineCursor"}
+                },
+                {
+                  "entryId": "search-grid-0",
+                  "content": {
+                    "entryType": "TimelineTimelineModule",
+                    "items": [
+                      {
+                        "entryId": "search-grid-0-tweet-1010",
+                        "item": {
+                          "itemContent": {
+                            "tweet_results": {
+                              "result": {
+                                "rest_id": "1010",
+                                "core": {"user_results": {"result": {"legacy": {"screen_name": "grid_user"}}}},
+                                "legacy": {
+                                  "created_at": "Mon Jan 06 00:00:00 +0000 2025",
+                                  "full_text": "In a module",
+                                  "extended_entities": {
+                                    "media": [
+                                      {
+                                        "type": "video",
+                                        "media_key": "13_6001",
+                                        "media_url_https": "https://img.example/thumbs/6001.jpg",
+                                        "video_info": {
+                                          "variants": [
+                                            {"content_type": "video/mp4", "bitrate": 632000, "url": "https://video.example/6001/a.mp4"},
+                                            {"content_type": "video/mp4", "url": "https://video.example/6001/no-bitrate.mp4"},
+                                            {"content_type": "video/mp4", "bitrate": 632000, "url": "https://video.example/6001/b.mp4"}
+                                          ]
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {"entryId": "search-grid-0-empty"}
+                    ]
+                  }
+                },
+                {
+                  "entryId": "cursor-bottom-9002",
+                  "content": {"entryType": "TimelineTimelineCursor", "value": "BOTTOM_CURSOR", "cursorType": "Bottom"}
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}
