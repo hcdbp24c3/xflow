@@ -68,6 +68,7 @@ import com.alchemistaloha.xflow.core.feed.FollowBadge
 import com.alchemistaloha.xflow.core.feed.FollowBadgeLogic
 import com.alchemistaloha.xflow.core.model.Subscription
 import com.alchemistaloha.xflow.core.model.Tweet
+import com.alchemistaloha.xflow.core.player.BottomEdgeLayout
 import com.alchemistaloha.xflow.core.player.CaptionSpan
 import com.alchemistaloha.xflow.core.player.formatCount
 import com.alchemistaloha.xflow.core.player.parseCaption
@@ -113,7 +114,8 @@ fun TweetTextOverlay(
     onFullscreen: (() -> Unit)? = null,
     isFullscreen: Boolean = false,
 ) {
-    val bottomPadding = if (isFullscreen) 48.dp else 36.dp
+    // Clear of the seek / image bar's touch strip along the bottom edge.
+    val bottomPadding = if (isFullscreen) 48.dp else (BottomEdgeLayout.TOUCH_HEIGHT + 6f).dp
     val rightPadding = if (isFullscreen) 24.dp else 6.dp
 
     Box(modifier.fillMaxSize()) {

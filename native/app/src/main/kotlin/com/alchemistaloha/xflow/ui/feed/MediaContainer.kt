@@ -7,13 +7,9 @@ import androidx.annotation.OptIn
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -29,8 +25,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BrokenImage
 import androidx.compose.material.icons.rounded.ErrorOutline
@@ -73,7 +67,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -91,6 +84,8 @@ import coil3.compose.AsyncImage
 import coil3.compose.SubcomposeAsyncImage
 import com.alchemistaloha.xflow.core.model.Tweet
 import com.alchemistaloha.xflow.core.model.VideoEndAction
+import com.alchemistaloha.xflow.core.player.BottomEdgeLayout
+import com.alchemistaloha.xflow.core.player.ScrubMath
 import com.alchemistaloha.xflow.core.player.TapKind
 import com.alchemistaloha.xflow.core.player.TapSequenceDetector
 import com.alchemistaloha.xflow.core.player.formatSeekTime
@@ -99,7 +94,6 @@ import com.alchemistaloha.xflow.data.settings.SettingsStore
 import com.alchemistaloha.xflow.player.PlayerPool
 import com.alchemistaloha.xflow.ui.theme.AppColors
 import com.alchemistaloha.xflow.ui.theme.AppDurations
-import com.alchemistaloha.xflow.ui.theme.AppRadius
 import com.alchemistaloha.xflow.ui.theme.PressableScale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -295,32 +289,14 @@ fun TiktokMediaContainer(
                 }
             }
             LikeHeart(heartProgress.value, heartPosition, heartAngle)
-            if (tweet.mediaUrls.size > 1) {
-                Row(
-                    // Above the text overlay
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 132.dp),
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    repeat(tweet.mediaUrls.size) { index ->
-                        val active = pagerState.currentPage == index
-                        val width by animateDpAsState(
-                            if (active) 14.dp else 5.dp,
-                            tween(AppDurations.normal, easing = EaseOut),
-                            label = "dot",
-                        )
-                        Box(
-                            Modifier
-                                .padding(horizontal = 2.5.dp)
-                                .size(width, 5.dp)
-                                .background(
-                                    if (active) Color.White else Color.White.copy(alpha = 0.4f),
-                                    RoundedCornerShape(3.dp),
-                                ),
-                        )
-                    }
-                }
-            }
             overlay?.invoke(null, false)
+            // Position bar on the bottom edge, where the video seek bar is: drag it to slide
+            // through the images, tap a segment to jump.
+            ImagePositionBar(
+                pagerState,
+                tweet.mediaUrls.size,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
         return
     }
@@ -488,7 +464,7 @@ fun TiktokMediaContainer(
 
         // Play/pause + double-tap from raw pointer events. Stops short of the seek bar's
         // touch strip.
-        Box(Modifier.fillMaxSize().padding(bottom = 28.dp).then(tapModifier))
+        Box(Modifier.fillMaxSize().padding(bottom = BottomEdgeLayout.CONTENT_CLEARANCE.dp).then(tapModifier))
 
         // Buffering: a thin spinner, only for the item on screen.
         if (isVisible) {
@@ -543,8 +519,14 @@ fun TiktokMediaContainer(
         } else {
             // Caption and buttons, above the tap layer so their touches are their own.
             overlay?.invoke({ toggleFullscreen() }, false)
-            // Seek bar at the very bottom (thin line)
-            TiktokSeekBar(player, active = isVisible, modifier = Modifier.align(Alignment.BottomCenter))
+            // Seek bar: a line with a thumb, lifted clear of the tab bar. Last, so its touch
+            // strip wins over whatever is under it.
+            TiktokSeekBar(
+                player,
+                active = isVisible,
+                onTapAbove = { if (visibleNow) togglePlayPause() },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
     }
 }
@@ -626,112 +608,6 @@ private fun LikeHeart(progress: Float, position: Offset, angle: Float) {
     )
 }
 
-/**
- * Standalone seek bar: only it recomposes as the position moves.
- *
- * At rest it is a hairline along the bottom edge. While the finger is on it, the line
- * thickens, a thumb appears and a time label follows the finger.
- */
-@Composable
-private fun TiktokSeekBar(player: ExoPlayer, active: Boolean, modifier: Modifier = Modifier) {
-    var position by remember(player) { mutableLongStateOf(0L) }
-    var duration by remember(player) { mutableLongStateOf(0L) }
-    var isSeeking by remember { mutableStateOf(false) }
-    var seekPosition by remember { mutableFloatStateOf(0f) }
-
-    LaunchedEffect(player, active) {
-        while (true) {
-            position = player.currentPosition
-            duration = player.duration.let { if (it == androidx.media3.common.C.TIME_UNSET) 0L else it }
-            if (!active) break
-            delay(100)
-        }
-    }
-
-    if (duration <= 0L) return
-
-    val progress = (if (isSeeking) seekPosition else position.toFloat() / duration).coerceIn(0f, 1f)
-    val barHeight by animateDpAsState(if (isSeeking) 4.dp else 2.dp, tween(AppDurations.fast), label = "bar")
-    val thumbSize by animateDpAsState(if (isSeeking) 12.dp else 0.dp, tween(AppDurations.fast), label = "thumb")
-    val labelWidth = 104.dp
-
-    BoxWithConstraints(
-        modifier
-            .fillMaxWidth()
-            .height(24.dp)
-            .pointerInput(player, duration) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    down.consume()
-                    val width = size.width.toFloat().coerceAtLeast(1f)
-                    isSeeking = true
-                    seekPosition = (down.position.x / width).coerceIn(0f, 1f)
-                    var cancelled = false
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val change = event.changes.firstOrNull { it.id == down.id }
-                        if (change == null) {
-                            cancelled = true
-                            break
-                        }
-                        change.consume()
-                        if (!change.pressed) break
-                        seekPosition = (change.position.x / width).coerceIn(0f, 1f)
-                    }
-                    if (!cancelled) {
-                        val target = (seekPosition * duration).roundToInt().toLong()
-                        player.seekTo(target)
-                        position = target
-                    }
-                    isSeeking = false
-                }
-            },
-    ) {
-        val totalWidth = maxWidth
-        // Background bar
-        Box(
-            Modifier.align(Alignment.BottomStart).fillMaxWidth().height(barHeight)
-                .background(Color.White.copy(alpha = 0.22f)),
-        )
-        // Progress bar
-        Box(
-            Modifier.align(Alignment.BottomStart).width(totalWidth * progress).height(barHeight)
-                .background(Color.White),
-        )
-        // Thumb, only while seeking
-        if (thumbSize > 0.dp) {
-            Box(
-                Modifier
-                    .align(Alignment.BottomStart)
-                    .offset(x = totalWidth * progress - thumbSize / 2, y = -(barHeight / 2 - thumbSize / 2))
-                    .size(thumbSize)
-                    .background(Color.White, CircleShape),
-            )
-        }
-        // Time label when seeking
-        if (isSeeking) {
-            val left = (totalWidth * progress - labelWidth / 2)
-                .coerceIn(8.dp, (totalWidth - labelWidth - 8.dp).coerceAtLeast(8.dp))
-            Box(
-                Modifier
-                    .align(Alignment.BottomStart)
-                    .offset(x = left, y = (-30).dp)
-                    .width(labelWidth)
-                    .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(AppRadius.sm))
-                    .padding(vertical = 5.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    "${formatSeekTime((progress * duration).toLong())} / ${formatSeekTime(duration)}",
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
-    }
-}
-
 /** Controls shown over a fullscreen video: play/pause, seek bar, time, like and exit. */
 @Composable
 private fun FullscreenControls(
@@ -779,7 +655,7 @@ private fun FullscreenControls(
                 value = fraction,
                 onValueChange = { dragging = it },
                 onValueChangeFinished = {
-                    dragging?.let { player.seekTo((it * duration).toLong()) }
+                    dragging?.let { player.seekTo(ScrubMath.seekTargetMs(it, duration)) }
                     dragging = null
                 },
                 enabled = duration > 0,
@@ -792,7 +668,7 @@ private fun FullscreenControls(
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "${formatSeekTime((fraction * duration).toLong())} / ${formatSeekTime(duration)}",
+                    "${formatSeekTime(ScrubMath.seekTargetMs(fraction, duration))} / ${formatSeekTime(duration)}",
                     color = Color.White,
                     fontSize = 13.sp,
                 )

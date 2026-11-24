@@ -64,6 +64,7 @@ import com.alchemistaloha.xflow.data.sync.BackgroundSync
 import com.alchemistaloha.xflow.player.MediaCache
 import com.alchemistaloha.xflow.player.PlayerPool
 import com.alchemistaloha.xflow.ui.feed.EaseInCubic
+import com.alchemistaloha.xflow.core.player.BottomEdgeLayout
 import com.alchemistaloha.xflow.ui.feed.EaseOutCubic
 import com.alchemistaloha.xflow.ui.feed.Fullscreen
 import com.alchemistaloha.xflow.ui.feed.HashtagListScreen
@@ -318,5 +319,8 @@ private fun BottomBar(current: MainTab, onSelected: (MainTab) -> Unit) {
                 }
             }
         }
+        // The feed's seek bar and image bar end right above this bar. A finger aimed at them
+        // that lands a little low hits these rows, which do nothing, instead of a tab.
+        Box(Modifier.fillMaxWidth().height(BottomEdgeLayout.TAB_GUARD.dp).blockTouches())
     }
 }
