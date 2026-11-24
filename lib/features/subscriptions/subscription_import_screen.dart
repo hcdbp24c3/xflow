@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/client/twitter_client.dart';
 import '../../core/database/repository.dart';
+import '../../core/theme/app_theme.dart';
 
 class SubscriptionImportScreen extends StatefulWidget {
   const SubscriptionImportScreen({super.key});
@@ -83,13 +84,13 @@ class _SubscriptionImportScreenState extends State<SubscriptionImportScreen> {
                 elevation: 0,
                 color: Theme.of(context).colorScheme.surfaceContainerLow,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24)),
+                    borderRadius: BorderRadius.circular(AppRadius.lg)),
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Column(
                     children: [
                       const Icon(Icons.import_export,
-                          size: 48, color: Colors.blue),
+                          size: 40, color: AppColors.accent),
                       const SizedBox(height: 16),
                       Text(
                         'Enter a username to sync their following list into your XFlow subscriptions.',
@@ -139,9 +140,7 @@ class _SubscriptionImportScreenState extends State<SubscriptionImportScreen> {
                           label: Text(
                               _isImporting ? 'Importing...' : 'Start Import'),
                           style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                         ),
                       ),
@@ -157,7 +156,7 @@ class _SubscriptionImportScreenState extends State<SubscriptionImportScreen> {
                     if (snapshot.hasError) {
                       return _StatusCard(
                         icon: Icons.error_outline,
-                        color: Colors.redAccent,
+                        color: AppColors.danger,
                         message: 'Error: ${snapshot.error}',
                       );
                     }
@@ -165,7 +164,7 @@ class _SubscriptionImportScreenState extends State<SubscriptionImportScreen> {
                     if (snapshot.connectionState == ConnectionState.active) {
                       return _StatusCard(
                         icon: Icons.sync,
-                        color: Colors.blue,
+                        color: AppColors.accent,
                         message: 'Found ${snapshot.data} users so far...',
                         isSpinning: true,
                       );
@@ -174,7 +173,7 @@ class _SubscriptionImportScreenState extends State<SubscriptionImportScreen> {
                     if (snapshot.connectionState == ConnectionState.done) {
                       return _StatusCard(
                         icon: Icons.check_circle_outline,
-                        color: Colors.green,
+                        color: AppColors.success,
                         message: 'Success! Imported ${snapshot.data} users.',
                       );
                     }

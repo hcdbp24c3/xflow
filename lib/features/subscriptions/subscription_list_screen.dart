@@ -10,6 +10,7 @@ import '../../core/navigation/navigation_provider.dart';
 import '../settings/settings_screen.dart';
 import '../../core/client/account_provider.dart';
 import '../auth/login_screen.dart';
+import '../../core/theme/app_theme.dart';
 
 enum SubscriptionSort {
   name,
@@ -77,8 +78,7 @@ class SubscriptionListState {
     final normalized =
         screenName.startsWith('@') ? screenName.substring(1) : screenName;
     final lower = normalized.toLowerCase();
-    return allSubscriptions
-        .any((sub) => sub.screenName.toLowerCase() == lower);
+    return allSubscriptions.any((sub) => sub.screenName.toLowerCase() == lower);
   }
 
   SubscriptionListState copyWith({
@@ -208,7 +208,7 @@ class SubscriptionListScreen extends ConsumerWidget {
                   style: Theme.of(context)
                       .textTheme
                       .bodyMedium
-                      ?.copyWith(color: Colors.white70),
+                      ?.copyWith(color: AppColors.textSecondary),
                 ),
                 if (account == null) ...[
                   const SizedBox(height: 16),
@@ -230,15 +230,17 @@ class SubscriptionListScreen extends ConsumerWidget {
 
               return Card(
                 elevation: 0,
-                color: Theme.of(context).colorScheme.surfaceContainerLow,
-                margin: const EdgeInsets.symmetric(vertical: 4),
+                color: AppColors.surface,
+                clipBehavior: Clip.antiAlias,
+                margin: const EdgeInsets.symmetric(vertical: 3),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
+                    borderRadius: BorderRadius.circular(AppRadius.lg)),
                 child: ListTile(
                   contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
                   leading: CircleAvatar(
-                    radius: 24,
+                    radius: 22,
+                    backgroundColor: AppColors.surfaceHighest,
                     backgroundImage: sub.profileImageUrl != null
                         ? CachedNetworkImageProvider(
                             sub.profileImageUrl!,
@@ -246,17 +248,23 @@ class SubscriptionListScreen extends ConsumerWidget {
                           )
                         : null,
                     child: sub.profileImageUrl == null
-                        ? const Icon(Icons.person, size: 24)
+                        ? const Icon(Icons.person_rounded,
+                            size: 22, color: AppColors.textSecondary)
                         : null,
                   ),
                   title: Text(
                     sub.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 15),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(
                     '@${sub.screenName}${sub.followersCount != null ? " • ${_formatCount(sub.followersCount!)} followers" : ""}${views > 0 ? " • $views views" : ""}',
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 12.5),
                   ),
                   onTap: () {
                     if (isStandalone) {
@@ -318,7 +326,6 @@ class SubscriptionListScreen extends ConsumerWidget {
 
   Widget _buildSearchAndSort(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(subscriptionListProvider.notifier);
-    final state = ref.watch(subscriptionListProvider);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),

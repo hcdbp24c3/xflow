@@ -23,6 +23,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   late final WebViewController _controller;
   final _cookieManager = WebviewCookieManager();
   bool _userFound = false;
+  // 0..1 while a page is loading, 1 when idle.
+  double _progress = 0;
 
   @override
   void initState() {
@@ -32,7 +34,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ..setUserAgent(xMobileUserAgent)
       ..setNavigationDelegate(
         NavigationDelegate(
+          onProgress: (progress) {
+            if (mounted) setState(() => _progress = progress / 100);
+          },
           onPageFinished: (url) async {
+            if (mounted) setState(() => _progress = 1);
             if (url == LoginScreen.homeUrl) {
               if (_userFound) return;
 
@@ -112,7 +118,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Login to X')),
-      body: WebViewWidget(controller: _controller),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_progress < 1)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: LinearProgressIndicator(
+                value: _progress == 0 ? null : _progress,
+                minHeight: 2,
+                backgroundColor: Colors.transparent,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

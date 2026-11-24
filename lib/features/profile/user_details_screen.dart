@@ -8,6 +8,8 @@ import '../settings/settings_screen.dart';
 import '../subscriptions/subscription_list_screen.dart';
 import '../../core/database/entities.dart';
 import 'profile_provider.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_widgets.dart';
 
 class UserDetailsScreen extends ConsumerWidget {
   final String screenName;
@@ -195,7 +197,8 @@ class UserDetailsScreen extends ConsumerWidget {
                                   CircularProgressIndicator(),
                                   SizedBox(height: 16),
                                   Text('Fetching latest items...',
-                                      style: TextStyle(color: Colors.white70)),
+                                      style: TextStyle(
+                                          color: AppColors.textSecondary)),
                                 ],
                               ),
                             ),
@@ -327,10 +330,14 @@ class UserDetailsScreen extends ConsumerWidget {
                                             memCacheHeight: 300,
                                             placeholder: (context, url) =>
                                                 Container(
-                                                    color: Colors.black12),
-                                            errorWidget:
-                                                (context, url, error) =>
-                                                    const Icon(Icons.error),
+                                                    color:
+                                                        AppColors.surfaceHigh),
+                                            errorWidget: (context, url,
+                                                    error) =>
+                                                const Icon(
+                                                    Icons.broken_image_outlined,
+                                                    color:
+                                                        AppColors.textTertiary),
                                           )
                                         else
                                           Container(
@@ -352,9 +359,14 @@ class UserDetailsScreen extends ConsumerWidget {
                                             top: 4,
                                             right: 4,
                                             child: Icon(
-                                                Icons.play_circle_outline,
-                                                color: Colors.white70,
-                                                size: 20),
+                                                Icons.play_arrow_rounded,
+                                                color: Colors.white,
+                                                size: 20,
+                                                shadows: [
+                                                  Shadow(
+                                                      blurRadius: 6,
+                                                      color: Colors.black54),
+                                                ]),
                                           ),
                                       ],
                                     ),
@@ -385,7 +397,10 @@ class UserDetailsScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, st) => Center(child: Text('Error loading profile: $e')),
+        error: (e, st) => EmptyState(
+          icon: Icons.error_outline_rounded,
+          message: 'Error loading profile: $e',
+        ),
       ),
     );
   }

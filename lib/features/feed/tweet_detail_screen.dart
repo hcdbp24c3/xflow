@@ -6,6 +6,8 @@ import '../../core/client/twitter_client.dart';
 import '../../core/navigation/navigation_provider.dart';
 import '../subscriptions/subscription_list_screen.dart';
 import 'feed_provider.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_widgets.dart';
 
 final tweetDetailProvider =
     FutureProvider.family<TweetResponse, String>((ref, tweetId) async {
@@ -57,7 +59,7 @@ class _TweetRepliesSheetState extends ConsumerState<TweetRepliesSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Đã đăng bình luận'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
             duration: Duration(seconds: 2),
           ),
         );
@@ -65,7 +67,7 @@ class _TweetRepliesSheetState extends ConsumerState<TweetRepliesSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Không thể đăng bình luận'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.danger,
             duration: Duration(seconds: 2),
           ),
         );
@@ -94,8 +96,8 @@ class _TweetRepliesSheetState extends ConsumerState<TweetRepliesSheet> {
               // Handle bar
               Center(
                 child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 12),
-                  width: 32,
+                  margin: const EdgeInsets.only(top: 10, bottom: 6),
+                  width: 36,
                   height: 4,
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.outlineVariant,
@@ -105,14 +107,13 @@ class _TweetRepliesSheetState extends ConsumerState<TweetRepliesSheet> {
               ),
               // Header
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                padding: const EdgeInsets.fromLTRB(20, 0, 8, 4),
                 child: Row(
                   children: [
                     Text(
                       'Bình luận',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
                           ),
                     ),
                     const Spacer(),
@@ -128,16 +129,18 @@ class _TweetRepliesSheetState extends ConsumerState<TweetRepliesSheet> {
               Expanded(
                 child: repliesAsync.when(
                   data: (response) {
-                    final replies =
-                        response.tweets.where((t) => t.id != widget.tweet.id).toList();
+                    final replies = response.tweets
+                        .where((t) => t.id != widget.tweet.id)
+                        .toList();
                     if (replies.isEmpty) {
                       return ListView(
                         controller: scrollController,
                         children: const [
                           Padding(
-                            padding: EdgeInsets.all(48.0),
-                            child: Center(
-                              child: Text('Chưa có bình luận nào'),
+                            padding: EdgeInsets.only(top: 32),
+                            child: EmptyState(
+                              icon: Icons.mode_comment_outlined,
+                              message: 'Chưa có bình luận nào',
                             ),
                           ),
                         ],
@@ -154,11 +157,9 @@ class _TweetRepliesSheetState extends ConsumerState<TweetRepliesSheet> {
                   loading: () => const Center(
                     child: CircularProgressIndicator(),
                   ),
-                  error: (e, st) => Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Text('Lỗi tải bình luận: $e'),
-                    ),
+                  error: (e, st) => EmptyState(
+                    icon: Icons.error_outline_rounded,
+                    message: 'Lỗi tải bình luận: $e',
                   ),
                 ),
               ),
@@ -245,7 +246,7 @@ class _ReplyTile extends ConsumerWidget {
           child: ListTile(
             leading: CircleAvatar(
               radius: 20,
-              backgroundColor: Colors.white24,
+              backgroundColor: AppColors.surfaceHighest,
               backgroundImage: tweet.userAvatarUrlHighRes != null
                   ? CachedNetworkImageProvider(tweet.userAvatarUrlHighRes!)
                   : null,
@@ -268,7 +269,7 @@ class _ReplyTile extends ConsumerWidget {
                     .isSubscribed(tweet.userHandle)) ...[
                   const SizedBox(width: 4),
                   const Icon(Icons.check_circle,
-                      color: Colors.blueAccent, size: 14),
+                      color: AppColors.accent, size: 14),
                 ],
               ],
             ),
@@ -284,11 +285,12 @@ class _ReplyTile extends ConsumerWidget {
                 Row(
                   children: [
                     Icon(Icons.favorite_border,
-                        size: 16, color: Colors.grey[400]),
+                        size: 15, color: AppColors.textTertiary),
                     const SizedBox(width: 4),
                     Text(
                       _formatCount(tweet.favoriteCount),
-                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                      style: const TextStyle(
+                          color: AppColors.textTertiary, fontSize: 12),
                     ),
                   ],
                 ),

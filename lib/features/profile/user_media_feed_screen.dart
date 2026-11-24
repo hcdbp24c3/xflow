@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/navigation/navigation_provider.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_widgets.dart';
 import 'profile_provider.dart';
 import '../player/widgets/media_container.dart';
 import '../../core/models/tweet.dart';
@@ -81,110 +83,107 @@ class _UserMediaFeedScreenState extends ConsumerState<UserMediaFeedScreen> {
       }
     });
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => ref.read(navigationProvider.notifier).back(),
-        ),
-        title: Text('@${widget.screenName}',
-            style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white)),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => ref
-                .read(userMediaNotifierProvider(widget.screenName).notifier)
-                .refresh(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined, color: Colors.white),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (c) => const SettingsScreen()),
+      backgroundColor: AppColors.background,
+      body: MediaScaffoldBody(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: feedAsync.when(
+                data: (state) {
+                  final tweets = state.tweets;
+                  if (tweets.isEmpty) {
+                    if (state.isRefreshing) {
+                      return const EmptyState(loading: true, message: '');
+                    }
+                    return EmptyState(
+                      icon: Icons.play_circle_outline_rounded,
+                      message: 'No media found.',
+                      actions: [
+                        FilledButton.tonal(
+                          onPressed: () => ref
+                              .read(userMediaNotifierProvider(widget.screenName)
+                                  .notifier)
+                              .refresh(),
+                          child: const Text('Refresh'),
+                        ),
+                      ],
+                    );
+                  }
+
+                  return Stack(
+                    children: [
+                      MediaPager(
+                        tweets: tweets,
+                        controller: _pageController,
+                        initialIndex: widget.initialIndex,
+                        onIndexChanged: _onIndexChanged,
+                        itemBuilder:
+                            (context, tweet, isVisible, onPlaybackError) {
+                          return UserMediaFeedItem(
+                            tweet: tweet,
+                            isVisible: isVisible,
+                            onPlaybackError: onPlaybackError,
+                          );
+                        },
+                      ),
+                      if (state.isRefreshing) const TopProgressLine(),
+                    ],
+                  );
+                },
+                loading: () => const EmptyState(loading: true, message: ''),
+                error: (e, st) => EmptyState(
+                  icon: Icons.cloud_off_rounded,
+                  message: 'Error: $e',
+                  actions: [
+                    FilledButton.tonal(
+                      onPressed: () => ref
+                          .read(userMediaNotifierProvider(widget.screenName)
+                              .notifier)
+                          .refresh(),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ],
-      ),
-      body: feedAsync.when(
-        data: (state) {
-          final tweets = state.tweets;
-          if (tweets.isEmpty) {
-            if (state.isRefreshing) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('No media found.',
-                      style: TextStyle(color: Colors.white70)),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => ref
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: FeedTopBar(
+                leading: FloatingIconButton(
+                  icon: Icons.arrow_back_rounded,
+                  tooltip: 'Back',
+                  onTap: () => ref.read(navigationProvider.notifier).back(),
+                ),
+                title: Text('@${widget.screenName}'),
+                actions: [
+                  FloatingIconButton(
+                    icon: Icons.refresh_rounded,
+                    tooltip: 'Refresh',
+                    onTap: () => ref
                         .read(userMediaNotifierProvider(widget.screenName)
                             .notifier)
                         .refresh(),
-                    child: const Text('Refresh'),
+                  ),
+                  FloatingIconButton(
+                    icon: Icons.settings_outlined,
+                    tooltip: 'Settings',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (c) => const SettingsScreen()),
+                    ),
                   ),
                 ],
               ),
-            );
-          }
-
-          return Stack(
-            children: [
-              MediaPager(
-                tweets: tweets,
-                controller: _pageController,
-                initialIndex: widget.initialIndex,
-                onIndexChanged: _onIndexChanged,
-                itemBuilder: (context, tweet, isVisible, onPlaybackError) {
-                  return UserMediaFeedItem(
-                    tweet: tweet,
-                    isVisible: isVisible,
-                    onPlaybackError: onPlaybackError,
-                  );
-                },
-              ),
-              if (state.isRefreshing)
-                const Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: LinearProgressIndicator(
-                    minHeight: 2,
-                    backgroundColor: Colors.transparent,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                  ),
-                ),
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, st) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Error: $e', style: const TextStyle(color: Colors.white70)),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref
-                    .read(userMediaNotifierProvider(widget.screenName).notifier)
-                    .refresh(),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
+
 class UserMediaFeedItem extends StatelessWidget {
   final Tweet tweet;
   final bool isVisible;

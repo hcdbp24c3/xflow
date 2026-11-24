@@ -7,6 +7,8 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/models/tweet.dart';
 import '../../../core/navigation/navigation_provider.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_widgets.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/database/entities.dart';
 import '../../subscriptions/subscription_list_screen.dart';
@@ -31,42 +33,67 @@ class TweetTextOverlay extends ConsumerStatefulWidget {
 }
 
 class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
+  static const double _actionColumnWidth = 56;
+  static const List<Shadow> _textShadow = [
+    Shadow(offset: Offset(0, 1), blurRadius: 3, color: Colors.black54),
+  ];
+
+  // Lighter than the accent so links stay readable on top of video.
+  static const Color _linkColor = Color(0xFF9CC2FF);
+
   bool _isExpanded = false;
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = widget.isFullscreen ? 48.0 : 40.0;
-    final rightPadding = widget.isFullscreen ? 24.0 : 12.0;
+    final bottomPadding = widget.isFullscreen ? 48.0 : 36.0;
+    final rightPadding = widget.isFullscreen ? 24.0 : 6.0;
 
     return Stack(
       children: [
-        // Text Overlay (Bottom)
+        // Scrim behind the caption. It ignores touches, so tapping and
+        // double-tapping the media still work down here.
         Positioned(
           bottom: 0,
           left: 0,
           right: 0,
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  Colors.black.withValues(alpha: 0.2),
-                  Colors.black.withValues(alpha: 0.5),
-                  Colors.black.withValues(alpha: 0.8),
-                ],
-                stops: const [0.0, 0.3, 0.6, 1.0],
+          height: 260,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.28),
+                    Colors.black.withValues(alpha: 0.62),
+                  ],
+                  stops: const [0.0, 0.5, 1.0],
+                ),
               ),
             ),
-            padding: EdgeInsets.fromLTRB(16, 60, 12, bottomPadding),
+          ),
+        ),
+        // Caption (bottom left). The right inset keeps it clear of the
+        // action column.
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+                16, 0, _actionColumnWidth + rightPadding + 8, bottomPadding),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 _buildUserHeader(context),
-                const SizedBox(height: 12),
-                _buildTweetText(),
+                // A text-only tweet already shows its text as the page.
+                if (widget.tweet.mediaUrls.isNotEmpty &&
+                    widget.tweet.text.trim().isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  _buildTweetText(),
+                ],
               ],
             ),
           ),
@@ -74,7 +101,7 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
         // Action Buttons (Right Side)
         Positioned(
           right: rightPadding,
-          bottom: widget.isFullscreen ? 60 : 120,
+          bottom: bottomPadding - 6,
           child: _buildActionButtons(),
         ),
       ],
@@ -84,13 +111,21 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
   Widget _buildActionButtons() {
     // Watch live tweet state so buttons update immediately after toggle
     final tweet = watchLiveTweet(ref, widget.tweet);
+    // The saved state comes from the bookmark list: a tweet in a feed never
+    // has isBookmarked set, so the icon used to stay off after saving.
+    final isBookmarked = ref.watch(bookmarkListProvider.select((bookmarks) =>
+        bookmarks.value?.any((t) => t.id == tweet.id) ?? tweet.isBookmarked));
+    const gap = SizedBox(height: 14);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         _ActionButton(
-          icon: tweet.isLiked ? Icons.favorite : Icons.favorite_border,
-          color: tweet.isLiked ? Colors.red : Colors.white,
+          icon: tweet.isLiked
+              ? Icons.favorite_rounded
+              : Icons.favorite_border_rounded,
+          color: tweet.isLiked ? AppColors.like : Colors.white,
+          active: tweet.isLiked,
           label: _formatCount(tweet.favoriteCount),
           onTap: () {
             ref
@@ -98,18 +133,19 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
                 .toggleLike(tweet.id, tweet: widget.tweet);
           },
         ),
-        const SizedBox(height: 16),
+        gap,
         _ActionButton(
-          icon: Icons.chat_bubble_outline,
+          icon: Icons.mode_comment_outlined,
           label: _formatCount(tweet.replyCount),
           onTap: () {
             TweetRepliesSheet.show(context, tweet);
           },
         ),
-        const SizedBox(height: 16),
+        gap,
         _ActionButton(
-          icon: tweet.isRetweeted ? Icons.repeat : Icons.repeat,
-          color: tweet.isRetweeted ? Colors.greenAccent : Colors.white,
+          icon: Icons.repeat_rounded,
+          color: tweet.isRetweeted ? AppColors.retweet : Colors.white,
+          active: tweet.isRetweeted,
           label: _formatCount(tweet.retweetCount),
           onTap: () {
             ref
@@ -117,18 +153,23 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
                 .toggleRetweet(tweet.id, tweet: widget.tweet);
           },
         ),
-        const SizedBox(height: 16),
+        gap,
         _ActionButton(
-          icon: tweet.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-          color: tweet.isBookmarked ? Colors.amber : Colors.white,
+          icon: isBookmarked
+              ? Icons.bookmark_rounded
+              : Icons.bookmark_border_rounded,
+          color: isBookmarked ? AppColors.bookmark : Colors.white,
+          active: isBookmarked,
           label: "Lưu",
           onTap: () {
-            ref.read(bookmarkListProvider.notifier).toggleBookmark(tweet);
+            ref
+                .read(bookmarkListProvider.notifier)
+                .toggleBookmark(tweet.copyWith(isBookmarked: isBookmarked));
           },
         ),
-        const SizedBox(height: 16),
+        gap,
         _ActionButton(
-          icon: Icons.share_outlined,
+          icon: Icons.ios_share_rounded,
           label: "Chia sẻ",
           onTap: () async {
             final handle = tweet.userHandle.replaceFirst('@', '');
@@ -137,10 +178,11 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
           },
         ),
         if (widget.onFullscreen != null && tweet.isVideo) ...[
-          const SizedBox(height: 16),
+          gap,
           _ActionButton(
-            icon:
-                widget.isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+            icon: widget.isFullscreen
+                ? Icons.fullscreen_exit_rounded
+                : Icons.fullscreen_rounded,
             label: widget.isFullscreen ? "Exit" : "Full",
             onTap: widget.onFullscreen!,
           ),
@@ -160,16 +202,17 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
 
   Widget _buildUserHeader(BuildContext context) {
     final subscriptionState = ref.watch(subscriptionListProvider);
-    final isSubscribed = subscriptionState.isSubscribed(widget.tweet.userHandle);
+    final isSubscribed =
+        subscriptionState.isSubscribed(widget.tweet.userHandle);
 
     String dateStr = "";
     if (widget.tweet.createdAt != null) {
       try {
         final date = widget.tweet.createdAt!.toLocal();
-        dateStr = " • ${DateFormat.yMMMd().add_Hm().format(date)}";
+        dateStr = DateFormat.yMMMd().add_Hm().format(date);
       } catch (e) {
         AppLogger.log('XFLOW: Error formatting date: $e');
-        dateStr = " • ERR";
+        dateStr = "ERR";
       }
     }
 
@@ -182,13 +225,14 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
             ref.read(navigationProvider.notifier).selectUser(handle);
           },
           child: CircleAvatar(
-            radius: 20,
-            backgroundColor: Colors.white24,
+            radius: 18,
+            backgroundColor: AppColors.surfaceHighest,
             backgroundImage: widget.tweet.userAvatarUrlHighRes != null
                 ? CachedNetworkImageProvider(widget.tweet.userAvatarUrlHighRes!)
                 : null,
             child: widget.tweet.userAvatarUrlHighRes == null
-                ? const Icon(Icons.person, color: Colors.white, size: 20)
+                ? const Icon(Icons.person_rounded,
+                    color: AppColors.textSecondary, size: 20)
                 : null,
           ),
         ),
@@ -211,26 +255,22 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
                         widget.tweet.userHandle,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          shadows: [
-                            Shadow(
-                                offset: Offset(0, 1),
-                                blurRadius: 2,
-                                color: Colors.black54),
-                          ],
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          letterSpacing: -0.1,
+                          shadows: _textShadow,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (isSubscribed) ...[
                       const SizedBox(width: 4),
-                      const Icon(Icons.check_circle,
-                          color: Colors.blueAccent, size: 16),
+                      const Icon(Icons.check_circle_rounded,
+                          color: AppColors.accent, size: 15),
                     ],
                     if (!isSubscribed) ...[
                       const SizedBox(width: 8),
-                      GestureDetector(
+                      PressableScale(
                         onTap: () {
                           ref
                               .read(subscriptionListProvider.notifier)
@@ -246,16 +286,18 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 3),
+                              horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.blueAccent.withValues(alpha: 0.8),
-                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.black.withValues(alpha: 0.2),
+                            border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.85)),
+                            borderRadius: BorderRadius.circular(AppRadius.xl),
                           ),
                           child: const Text(
                             'Follow',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 11,
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -268,8 +310,9 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
                   Text(
                     dateStr,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 11.5,
+                      shadows: _textShadow,
                     ),
                   ),
               ],
@@ -305,9 +348,8 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
           TextSpan(
             text: word,
             style: const TextStyle(
-              color: Colors.lightBlueAccent,
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
+              color: _linkColor,
+              fontWeight: FontWeight.w600,
             ),
             recognizer: TapGestureRecognizer()
               ..onTap = () {
@@ -320,9 +362,8 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
           TextSpan(
             text: word,
             style: const TextStyle(
-              color: Colors.lightBlueAccent,
+              color: _linkColor,
               fontWeight: FontWeight.w500,
-              fontSize: 15,
             ),
             recognizer: TapGestureRecognizer()
               ..onTap = () {
@@ -338,9 +379,8 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
           TextSpan(
             text: cleanUrl,
             style: const TextStyle(
-              color: Colors.lightBlueAccent,
+              color: _linkColor,
               fontWeight: FontWeight.w500,
-              fontSize: 15,
               decoration: TextDecoration.underline,
             ),
             recognizer: TapGestureRecognizer()
@@ -363,17 +403,13 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
             children: spans,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 15,
-              height: 1.4,
-              shadows: [
-                Shadow(
-                    offset: Offset(0, 1), blurRadius: 2, color: Colors.black),
-              ],
+              fontSize: 14,
+              height: 1.35,
+              shadows: _textShadow,
             ),
           ),
           maxLines: _isExpanded ? null : 3,
-          overflow:
-              _isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+          overflow: _isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
         ),
         if (!_isExpanded && widget.tweet.text.length > 100)
           GestureDetector(
@@ -388,8 +424,9 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
                 "Xem thêm",
                 style: TextStyle(
                   color: Colors.white70,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12.5,
+                  shadows: _textShadow,
                 ),
               ),
             ),
@@ -399,66 +436,104 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
   }
 }
 
-class _ActionButton extends StatelessWidget {
+class _ActionButton extends StatefulWidget {
   final IconData icon;
   final Color color;
   final String label;
   final VoidCallback? onTap;
+
+  /// Whether the action is on (liked, retweeted, saved). The icon pops when
+  /// this turns on, wherever the change came from, so a double-tap like
+  /// also plays here.
+  final bool active;
 
   const _ActionButton({
     required this.icon,
     this.color = Colors.white,
     required this.label,
     this.onTap,
+    this.active = false,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final child = SizedBox(
-      width: 60,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.transparent,
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 32,
-              shadows: const [
-                Shadow(
-                    offset: Offset(0, 1), blurRadius: 4, color: Colors.black),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              shadows: [
-                Shadow(
-                    offset: Offset(0, 1),
-                    blurRadius: 2,
-                    color: Colors.black54),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+  State<_ActionButton> createState() => _ActionButtonState();
+}
 
-    if (onTap == null) return child;
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: child,
+class _ActionButtonState extends State<_ActionButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pop = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
+  );
+  late final Animation<double> _popScale = TweenSequence<double>([
+    TweenSequenceItem(
+      tween:
+          Tween(begin: 1.0, end: 1.3).chain(CurveTween(curve: Curves.easeOut)),
+      weight: 40,
+    ),
+    TweenSequenceItem(
+      tween: Tween(begin: 1.3, end: 1.0)
+          .chain(CurveTween(curve: Curves.easeOutBack)),
+      weight: 60,
+    ),
+  ]).animate(_pop);
+
+  @override
+  void didUpdateWidget(_ActionButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active) _pop.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _pop.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PressableScale(
+      onTap: widget.onTap,
+      tooltip: widget.label,
+      child: SizedBox(
+        width: 56,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ScaleTransition(
+              scale: _popScale,
+              child: Icon(
+                widget.icon,
+                color: widget.color,
+                size: 29,
+                shadows: const [
+                  Shadow(
+                      offset: Offset(0, 1),
+                      blurRadius: 6,
+                      color: Colors.black54),
+                ],
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              widget.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                shadows: [
+                  Shadow(
+                      offset: Offset(0, 1),
+                      blurRadius: 3,
+                      color: Colors.black54),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

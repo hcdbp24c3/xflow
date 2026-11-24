@@ -8,6 +8,8 @@ import '../settings/settings_screen.dart';
 import 'hashtag_provider.dart';
 import 'widgets/media_pager.dart';
 import 'widgets/tweet_text_overlay.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_widgets.dart';
 
 class HashtagListScreen extends ConsumerWidget {
   const HashtagListScreen({super.key});
@@ -69,31 +71,37 @@ class HashtagListScreen extends ConsumerWidget {
       ),
       body: hashtagsAsync.when(
         data: (tags) => tags.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.tag, size: 64, color: Colors.white24),
-                    const SizedBox(height: 16),
-                    const Text('No hashtags added yet',
-                        style: TextStyle(color: Colors.white70)),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => _showAddHashtagDialog(context, ref),
-                      child: const Text('Add your first hashtag'),
-                    ),
-                  ],
-                ),
+            ? EmptyState(
+                icon: Icons.tag_rounded,
+                message: 'No hashtags added yet',
+                actions: [
+                  FilledButton.tonal(
+                    onPressed: () => _showAddHashtagDialog(context, ref),
+                    child: const Text('Add your first hashtag'),
+                  ),
+                ],
               )
             : ListView.builder(
                 itemCount: tags.length,
                 itemBuilder: (context, index) {
                   final tag = tags[index];
                   return ListTile(
-                    leading: const Icon(Icons.tag, color: Colors.blue),
-                    title: Text(tag, style: const TextStyle(fontSize: 16)),
+                    leading: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceHigh,
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                      child: const Icon(Icons.tag_rounded,
+                          size: 18, color: AppColors.accent),
+                    ),
+                    title: Text(tag,
+                        style: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w500)),
                     trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 20),
+                      icon: const Icon(Icons.delete_outline_rounded,
+                          size: 20, color: AppColors.textTertiary),
                       onPressed: () => _confirmDelete(context, ref, tag),
                     ),
                     onTap: () {
@@ -103,7 +111,10 @@ class HashtagListScreen extends ConsumerWidget {
                 },
               ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, st) => Center(child: Text('Error: $e')),
+        error: (e, st) => EmptyState(
+          icon: Icons.error_outline_rounded,
+          message: 'Error: $e',
+        ),
       ),
     );
   }
@@ -124,7 +135,8 @@ class HashtagListScreen extends ConsumerWidget {
               ref.read(hashtagListProvider.notifier).removeHashtag(tag);
               Navigator.pop(context);
             },
-            child: const Text('Remove', style: TextStyle(color: Colors.red)),
+            child:
+                const Text('Remove', style: TextStyle(color: AppColors.danger)),
           ),
         ],
       ),
@@ -168,95 +180,100 @@ class _HashtagMediaFeedScreenState
     final feedAsync = ref.watch(hashtagMediaProvider(widget.hashtag));
 
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => ref.read(navigationProvider.notifier).back(),
-        ),
-        title: Text(widget.hashtag,
-            style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white)),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              if (_pageController.hasClients) _pageController.jumpToPage(0);
-              ref.read(hashtagMediaProvider(widget.hashtag).notifier).refresh();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined, color: Colors.white),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (c) => const SettingsScreen()),
-            ),
-          ),
-        ],
-      ),
-      body: feedAsync.when(
-        data: (state) {
-          final tweets = state.tweets;
-          if (tweets.isEmpty) {
-            return const Center(
-                child: Text('No media found',
-                    style: TextStyle(color: Colors.white70)));
-          }
+      backgroundColor: AppColors.background,
+      body: MediaScaffoldBody(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: feedAsync.when(
+                data: (state) {
+                  final tweets = state.tweets;
+                  if (tweets.isEmpty) {
+                    return const EmptyState(
+                      icon: Icons.tag_rounded,
+                      message: 'No media found',
+                    );
+                  }
 
-          return Stack(
-            children: [
-              MediaPager(
-                tweets: tweets,
-                controller: _pageController,
-                // The hashtag feed never precached images.
-                precacheImages: false,
-                onIndexChanged: _onIndexChanged,
-                itemBuilder: (context, tweet, isVisible, onPlaybackError) {
-                  return HashtagFeedItem(
-                    tweet: tweet,
-                    isVisible: isVisible,
-                    onPlaybackError: onPlaybackError,
+                  return Stack(
+                    children: [
+                      MediaPager(
+                        tweets: tweets,
+                        controller: _pageController,
+                        // The hashtag feed never precached images.
+                        precacheImages: false,
+                        onIndexChanged: _onIndexChanged,
+                        itemBuilder:
+                            (context, tweet, isVisible, onPlaybackError) {
+                          return HashtagFeedItem(
+                            tweet: tweet,
+                            isVisible: isVisible,
+                            onPlaybackError: onPlaybackError,
+                          );
+                        },
+                      ),
+                      if (state.isLoadingMore || state.isRefreshing)
+                        const TopProgressLine(),
+                    ],
                   );
                 },
-              ),
-              if (state.isLoadingMore || state.isRefreshing)
-                const Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: LinearProgressIndicator(
-                    minHeight: 2,
-                    backgroundColor: Colors.transparent,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                  ),
+                loading: () => const EmptyState(loading: true, message: ''),
+                error: (e, st) => EmptyState(
+                  icon: Icons.cloud_off_rounded,
+                  message: 'Error: $e',
+                  actions: [
+                    FilledButton.tonal(
+                      onPressed: () => ref
+                          .read(hashtagMediaProvider(widget.hashtag).notifier)
+                          .refresh(),
+                      child: const Text('Retry'),
+                    ),
+                  ],
                 ),
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, st) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Error: $e', style: const TextStyle(color: Colors.white70)),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref
-                    .read(hashtagMediaProvider(widget.hashtag).notifier)
-                    .refresh(),
-                child: const Text('Retry'),
               ),
-            ],
-          ),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: FeedTopBar(
+                leading: FloatingIconButton(
+                  icon: Icons.arrow_back_rounded,
+                  tooltip: 'Back',
+                  onTap: () => ref.read(navigationProvider.notifier).back(),
+                ),
+                title: Text(widget.hashtag),
+                actions: [
+                  FloatingIconButton(
+                    icon: Icons.refresh_rounded,
+                    tooltip: 'Refresh',
+                    onTap: () {
+                      if (_pageController.hasClients) {
+                        _pageController.jumpToPage(0);
+                      }
+                      ref
+                          .read(hashtagMediaProvider(widget.hashtag).notifier)
+                          .refresh();
+                    },
+                  ),
+                  FloatingIconButton(
+                    icon: Icons.settings_outlined,
+                    tooltip: 'Settings',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (c) => const SettingsScreen()),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
+
 class HashtagFeedItem extends StatelessWidget {
   final Tweet tweet;
   final bool isVisible;

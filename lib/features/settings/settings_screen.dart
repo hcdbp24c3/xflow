@@ -7,6 +7,7 @@ import '../../core/utils/media_cache_manager.dart';
 import '../feed/feed_provider.dart';
 import '../subscriptions/subscription_import_screen.dart';
 import 'log_viewer_screen.dart';
+import '../../core/theme/app_theme.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -41,7 +42,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
-        centerTitle: true,
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -144,7 +144,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               _SettingsTile(
                 icon: Icons.logout,
                 title: 'Logout',
-                titleColor: Colors.redAccent,
+                titleColor: AppColors.danger,
                 onTap: () async {
                   final navigator = Navigator.of(context);
                   await ref.read(accountProvider.notifier).logout();
@@ -173,21 +173,23 @@ class _SettingsGroup extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+          padding: const EdgeInsets.fromLTRB(28, 14, 24, 8),
           child: Text(
             title,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.bold,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: AppColors.textTertiary,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.4,
                 ),
           ),
         ),
         Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           elevation: 0,
-          color: Theme.of(context).colorScheme.surfaceContainerLow,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          color: AppColors.surface,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.lg)),
           child: Column(children: children),
         ),
         const SizedBox(height: 8),
@@ -214,8 +216,9 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
       leading: Icon(icon,
+          size: 22,
           color: titleColor ?? Theme.of(context).colorScheme.onSurfaceVariant),
       title: Text(
         title,
@@ -225,7 +228,8 @@ class _SettingsTile extends StatelessWidget {
         ),
       ),
       subtitle: subtitle != null ? Text(subtitle!) : null,
-      trailing: const Icon(Icons.chevron_right, size: 20),
+      trailing: const Icon(Icons.chevron_right_rounded,
+          size: 20, color: AppColors.textTertiary),
       onTap: onTap,
     );
   }
@@ -532,9 +536,10 @@ class StorageSettingsPage extends ConsumerWidget {
             onChanged: (v) => notifier.updateMediaCacheSize(v.round()),
           ),
           ListTile(
-            leading: const Icon(Icons.cleaning_services, color: Colors.orange),
+            leading:
+                const Icon(Icons.cleaning_services, color: AppColors.warning),
             title: const Text('Clear Media Cache',
-                style: TextStyle(color: Colors.orange)),
+                style: TextStyle(color: AppColors.warning)),
             onTap: () async {
               await CustomMediaCacheManager.clearCache();
               onRefresh();
@@ -551,9 +556,9 @@ class StorageSettingsPage extends ConsumerWidget {
             onChanged: (v) => notifier.updatePruneThreshold(v.toInt()),
           ),
           ListTile(
-            leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+            leading: const Icon(Icons.delete_outline, color: AppColors.danger),
             title: const Text('Purge Seen Metadata',
-                style: TextStyle(color: Colors.redAccent)),
+                style: TextStyle(color: AppColors.danger)),
             subtitle: const Text('Delete database records for watched videos'),
             onTap: () async {
               await Repository.purgeSeenMetadata();
@@ -585,9 +590,9 @@ class SubscriptionSettingsPage extends ConsumerWidget {
                     builder: (c) => const SubscriptionImportScreen())),
           ),
           ListTile(
-            leading: const Icon(Icons.delete_sweep, color: Colors.orange),
+            leading: const Icon(Icons.delete_sweep, color: AppColors.warning),
             title: const Text('Clear All Subscriptions',
-                style: TextStyle(color: Colors.orange)),
+                style: TextStyle(color: AppColors.warning)),
             onTap: () async {
               await Repository.clearSubscriptions();
               ref.invalidate(feedNotifierProvider);

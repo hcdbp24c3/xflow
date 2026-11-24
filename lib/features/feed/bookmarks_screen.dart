@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'bookmark_provider.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_widgets.dart';
 
 class BookmarksScreen extends ConsumerWidget {
   const BookmarksScreen({super.key});
@@ -16,19 +18,9 @@ class BookmarksScreen extends ConsumerWidget {
       ),
       body: bookmarksAsync.when(
         data: (bookmarks) => bookmarks.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.bookmark_border,
-                        size: 64, color: Colors.white24),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Ch\u00E3a c\u00F3 bookmark n\u00E0o',
-                      style: TextStyle(color: Colors.white70, fontSize: 16),
-                    ),
-                  ],
-                ),
+            ? const EmptyState(
+                icon: Icons.bookmark_border_rounded,
+                message: 'Ch\u01B0a c\u00F3 bookmark n\u00E0o',
               )
             : ListView.builder(
                 itemCount: bookmarks.length,
@@ -40,18 +32,17 @@ class BookmarksScreen extends ConsumerWidget {
                     background: Container(
                       alignment: Alignment.centerRight,
                       padding: const EdgeInsets.only(right: 24),
-                      color: Colors.red,
-                      child:
-                          const Icon(Icons.delete, color: Colors.white),
+                      color: AppColors.danger,
+                      child: const Icon(Icons.delete_outline_rounded,
+                          color: Colors.white),
                     ),
                     onDismissed: (_) {
                       ref
                           .read(bookmarkListProvider.notifier)
-                          .toggleBookmark(tweet);
+                          .toggleBookmark(tweet.copyWith(isBookmarked: true));
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content:
-                              const Text('\u0110\u00E3 xo\u00E1 bookmark'),
+                          content: const Text('\u0110\u00E3 xo\u00E1 bookmark'),
                           action: SnackBarAction(
                             label: 'Ho\u00E0n t\u00E1c',
                             onPressed: () {
@@ -66,36 +57,38 @@ class BookmarksScreen extends ConsumerWidget {
                     child: ListTile(
                       leading: CircleAvatar(
                         radius: 20,
-                        backgroundColor: Colors.white24,
-                        backgroundImage:
-                            tweet.userAvatarUrlHighRes != null
-                                ? CachedNetworkImageProvider(
-                                    tweet.userAvatarUrlHighRes!)
-                                : null,
+                        backgroundColor: AppColors.surfaceHighest,
+                        backgroundImage: tweet.userAvatarUrlHighRes != null
+                            ? CachedNetworkImageProvider(
+                                tweet.userAvatarUrlHighRes!)
+                            : null,
                         child: tweet.userAvatarUrlHighRes == null
-                            ? const Icon(Icons.person, size: 20)
+                            ? const Icon(Icons.person_rounded,
+                                size: 20, color: AppColors.textSecondary)
                             : null,
                       ),
                       title: Text(
                         tweet.userHandle,
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 14),
+                            fontWeight: FontWeight.w600, fontSize: 14),
                       ),
                       subtitle: Text(
                         tweet.text,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14),
+                        style: const TextStyle(
+                            fontSize: 13, color: AppColors.textSecondary),
                       ),
-                      trailing: const Icon(Icons.bookmark,
-                          color: Colors.amber),
+                      trailing: const Icon(Icons.bookmark_rounded,
+                          size: 20, color: AppColors.bookmark),
                     ),
                   );
                 },
               ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, st) => Center(
-          child: Text('L\u1ED7i: $e', style: const TextStyle(color: Colors.white70)),
+        error: (e, st) => EmptyState(
+          icon: Icons.error_outline_rounded,
+          message: 'L\u1ED7i: $e',
         ),
       ),
     );
