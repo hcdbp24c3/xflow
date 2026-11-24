@@ -25,7 +25,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 /** Thrown where Dart's `Future.timeout` threw its TimeoutException. */
-class RequestTimeoutException(val seconds: Int) : Exception() {
+// The message matters: R8 renames this class, so the name cannot say it is a timeout.
+class RequestTimeoutException(val seconds: Int) : Exception("request timeout after ${seconds}s") {
     override fun toString(): String = "TimeoutException after 0:00:${"%02d".format(seconds)}.000000: Future not completed"
 }
 
