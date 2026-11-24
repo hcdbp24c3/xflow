@@ -362,7 +362,8 @@ private fun ReplyTile(tweet: Tweet, onClose: () -> Unit) {
                     }
                 }
                 Spacer(Modifier.height(4.dp))
-                Text(tweet.text, color = AppColors.textSecondary, fontSize = 15.sp)
+                Text(shownText(tweet), color = AppColors.textSecondary, fontSize = 15.sp)
+                TranslateLine(tweet, onMedia = false)
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(

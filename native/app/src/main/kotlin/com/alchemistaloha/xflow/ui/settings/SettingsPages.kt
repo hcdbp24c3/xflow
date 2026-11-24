@@ -26,7 +26,9 @@ import com.alchemistaloha.xflow.core.model.VideoEndAction
 import com.alchemistaloha.xflow.core.settings.SettingsFormat
 import com.alchemistaloha.xflow.data.db.Repository
 import com.alchemistaloha.xflow.data.feed.FeedStore
+import com.alchemistaloha.xflow.core.translate.TranslateLogic
 import com.alchemistaloha.xflow.data.settings.SettingsStore
+import com.alchemistaloha.xflow.data.settings.ViewerPrefs
 import com.alchemistaloha.xflow.data.subscriptions.SubscriptionListStore
 import com.alchemistaloha.xflow.player.MediaCache
 import com.alchemistaloha.xflow.ui.nav.Navigator
@@ -40,6 +42,8 @@ import kotlinx.coroutines.launch
 fun PlaybackSettingsPage() {
     val settings by SettingsStore.state.collectAsStateWithLifecycle()
     val notifier = SettingsStore
+
+    val viewer by ViewerPrefs.state.collectAsStateWithLifecycle()
 
     SettingsPage("Playback & Feed") {
         ListRow(
@@ -79,6 +83,26 @@ fun PlaybackSettingsPage() {
             min = 0.0,
             max = 5.0,
             onChanged = { notifier.updateDiscoveryParam(playbackRetryLimit = it.toInt()) },
+        )
+        SwitchRow(
+            title = "Subtitles",
+            subtitle = "Show a video's subtitles when it has them",
+            value = viewer.subtitlesOn,
+            onChanged = { ViewerPrefs.setSubtitlesOn(it) },
+        )
+        ListRow(
+            title = "Translate Posts Into",
+            subtitle = "Language used by Translate",
+            trailing = {
+                DropdownTrailing(
+                    value = viewer.translateLang,
+                    items = TranslateLogic.targetChoices(ViewerPrefs.deviceLang).let {
+                        if (viewer.translateLang in it) it else it + viewer.translateLang
+                    },
+                    label = { TranslateLogic.targetChoiceLabel(it, ViewerPrefs.deviceLang) },
+                    onChanged = { ViewerPrefs.setTranslateLang(it) },
+                )
+            },
         )
         SettingsDivider()
         Text(

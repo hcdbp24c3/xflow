@@ -26,9 +26,8 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.Fullscreen
-import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.IosShare
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material3.Icon
@@ -86,7 +85,7 @@ import java.util.Date
 import java.util.Locale
 
 private val ActionColumnWidth = 56.dp
-private val TextShadow = Shadow(color = Color.Black.copy(alpha = 0.54f), offset = Offset(0f, 1f), blurRadius = 3f)
+internal val FeedTextShadow = Shadow(color = Color.Black.copy(alpha = 0.54f), offset = Offset(0f, 1f), blurRadius = 3f)
 
 // Lighter than the accent so links stay readable on top of video.
 private val LinkColor = Color(0xFF9CC2FF)
@@ -145,8 +144,10 @@ fun TweetTextOverlay(
             // A text-only tweet already shows its text as the page.
             if (tweet.mediaUrls.isNotEmpty() && tweet.text.trim().isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))
-                TweetText(tweet.text)
+                TweetText(shownText(tweet))
             }
+            // Under the caption; for a text-only post, under the name (its text is the page).
+            if (!isFullscreen) TranslateLine(tweet)
         }
         // Action buttons (right side)
         Box(Modifier.align(Alignment.BottomEnd).padding(end = rightPadding, bottom = bottomPadding - 6.dp)) {
@@ -165,6 +166,9 @@ private fun ActionButtons(original: Tweet, onFullscreen: (() -> Unit)?, isFullsc
     val bookmarks by BookmarkStore.state.collectAsState()
     val isBookmarked = bookmarks.valueOrNull?.any { it.id == tweet.id } ?: tweet.isBookmarked
     var showReplies by remember { mutableStateOf(false) }
+    var showMore by remember { mutableStateOf(false) }
+    // Full screen and subtitles for a video, translation for a post in another language.
+    val hasMore = (onFullscreen != null && tweet.isVideo) || canTranslate(original)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         // A fullscreen video in landscape has no room for it above the buttons.
@@ -207,18 +211,21 @@ private fun ActionButtons(original: Tweet, onFullscreen: (() -> Unit)?, isFullsc
             label = "Chia sẻ",
             onTap = { shareTweet(context, tweet) },
         )
-        if (onFullscreen != null && tweet.isVideo) {
+        if (hasMore) {
             Spacer(Modifier.height(14.dp))
             ActionButton(
-                icon = if (isFullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
-                label = if (isFullscreen) "Exit" else "Full",
-                onTap = onFullscreen,
+                icon = Icons.Rounded.MoreHoriz,
+                label = "More",
+                onTap = { showMore = true },
             )
         }
     }
 
     if (showReplies) {
         TweetRepliesSheet(tweet = original, onDismiss = { showReplies = false })
+    }
+    if (showMore) {
+        FeedMoreSheet(tweet = original, onFullscreen = onFullscreen, onDismiss = { showMore = false })
     }
 }
 
@@ -248,7 +255,7 @@ private fun UserHeader(tweet: Tweet) {
                 fontWeight = FontWeight.Bold,
                 fontSize = 15.sp,
                 letterSpacing = (-0.1).sp,
-                shadow = TextShadow,
+                shadow = FeedTextShadow,
             ),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -259,7 +266,7 @@ private fun UserHeader(tweet: Tweet) {
                 style = TextStyle(
                     color = Color.White.copy(alpha = 0.7f),
                     fontSize = 11.5.sp,
-                    shadow = TextShadow,
+                    shadow = FeedTextShadow,
                 ),
             )
         }
@@ -426,7 +433,7 @@ private fun TweetText(text: String) {
     Column {
         Text(
             annotated,
-            style = TextStyle(color = Color.White, fontSize = 14.sp, lineHeight = 1.35.em, shadow = TextShadow),
+            style = TextStyle(color = Color.White, fontSize = 14.sp, lineHeight = 1.35.em, shadow = FeedTextShadow),
             maxLines = if (isExpanded) Int.MAX_VALUE else 3,
             overflow = if (isExpanded) TextOverflow.Visible else TextOverflow.Ellipsis,
         )
@@ -442,7 +449,7 @@ private fun TweetText(text: String) {
                     color = Color.White.copy(alpha = 0.7f),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 12.5.sp,
-                    shadow = TextShadow,
+                    shadow = FeedTextShadow,
                 ),
             )
         }
@@ -500,7 +507,7 @@ private fun ActionButton(
                     color = Color.White,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
-                    shadow = TextShadow,
+                    shadow = FeedTextShadow,
                 ),
             )
         }

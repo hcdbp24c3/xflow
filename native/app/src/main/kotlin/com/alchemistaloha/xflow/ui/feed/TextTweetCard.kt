@@ -16,11 +16,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import com.alchemistaloha.xflow.core.model.Tweet
 import com.alchemistaloha.xflow.ui.theme.AppColors
 
 /** Full-page card for a post that has no media: the text, centred on a soft gradient. */
 @Composable
-fun TextTweetCard(text: String, modifier: Modifier = Modifier) {
+fun TextTweetCard(tweet: Tweet, modifier: Modifier = Modifier) {
+    val text = shownText(tweet)
     Box(
         modifier
             .fillMaxSize()

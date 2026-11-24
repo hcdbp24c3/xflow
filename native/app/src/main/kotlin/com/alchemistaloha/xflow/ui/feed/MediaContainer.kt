@@ -27,6 +27,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BrokenImage
+import androidx.compose.material.icons.rounded.ClosedCaption
+import androidx.compose.material.icons.rounded.ClosedCaptionOff
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -41,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -91,7 +94,10 @@ import com.alchemistaloha.xflow.core.player.TapSequenceDetector
 import com.alchemistaloha.xflow.core.player.formatSeekTime
 import com.alchemistaloha.xflow.core.util.AppLogger
 import com.alchemistaloha.xflow.data.settings.SettingsStore
+import com.alchemistaloha.xflow.data.settings.ViewerPrefs
 import com.alchemistaloha.xflow.player.PlayerPool
+import com.alchemistaloha.xflow.player.SubtitleInfo
+import com.alchemistaloha.xflow.player.SubtitleStore
 import com.alchemistaloha.xflow.ui.theme.AppColors
 import com.alchemistaloha.xflow.ui.theme.AppDurations
 import com.alchemistaloha.xflow.ui.theme.PressableScale
@@ -101,6 +107,9 @@ import kotlin.math.roundToInt
 import kotlin.random.Random
 
 private val HeartSize = 96.dp
+
+/** Above a caption of three lines with its name, date and "Translate" line. */
+private val SubtitleBottomInFeed = 196.dp
 private val EaseOutBack = CubicBezierEasing(0.175f, 0.885f, 0.32f, 1.275f)
 private val EaseOut = CubicBezierEasing(0f, 0f, 0.58f, 1f)
 private val EaseIn = CubicBezierEasing(0.42f, 0f, 1f, 1f)
@@ -269,7 +278,7 @@ fun TiktokMediaContainer(
     // ---- text only ----
     if (tweet.mediaUrls.isEmpty()) {
         Box(modifier.fillMaxSize()) {
-            TextTweetCard(text = tweet.text)
+            TextTweetCard(tweet)
             overlay?.invoke(null, false)
         }
         return
@@ -507,6 +516,26 @@ fun TiktokMediaContainer(
         // Double-tap heart
         LikeHeart(heartProgress.value, heartPosition, heartAngle)
 
+        // Subtitles: above the caption in the feed, above the controls in full screen. Clear of
+        // the action column on the right. Takes no touches.
+        SubtitleOverlay(
+            tweet,
+            player,
+            active = isVisible,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(
+                    start = 16.dp,
+                    end = if (isFullscreen) 16.dp else 72.dp,
+                    bottom = when {
+                        !isFullscreen -> SubtitleBottomInFeed
+                        controlsVisible -> 112.dp
+                        else -> 36.dp
+                    },
+                ),
+        )
+
         if (isFullscreen) {
             FullscreenControls(
                 tweet = tweet,
@@ -632,6 +661,9 @@ private fun FullscreenControls(
         }
     }
     val live = rememberLiveTweet(tweet)
+    val viewerPrefs by ViewerPrefs.state.collectAsState()
+    // So the subtitle button is there even when subtitles were off in the feed.
+    LaunchedEffect(tweet.id) { SubtitleStore.load(tweet) }
 
     Box(Modifier.fillMaxSize().alpha(alpha)) {
         PressableScale(onTap = onPlayPause, modifier = Modifier.align(Alignment.Center)) {
@@ -679,6 +711,19 @@ private fun FullscreenControls(
                         contentDescription = null,
                         tint = if (live.isLiked) AppColors.like else Color.White,
                     )
+                }
+                if (SubtitleStore.info(tweet.id) is SubtitleInfo.Available) {
+                    PressableScale(
+                        onTap = { ViewerPrefs.setSubtitlesOn(!viewerPrefs.subtitlesOn) },
+                        tooltip = "Subtitles",
+                        modifier = Modifier.padding(8.dp),
+                    ) {
+                        Icon(
+                            if (viewerPrefs.subtitlesOn) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionOff,
+                            contentDescription = "Subtitles",
+                            tint = Color.White,
+                        )
+                    }
                 }
                 PressableScale(onTap = onExit, modifier = Modifier.padding(8.dp)) {
                     Icon(Icons.Rounded.FullscreenExit, contentDescription = null, tint = Color.White)
