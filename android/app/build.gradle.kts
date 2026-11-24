@@ -23,6 +23,13 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // CI test builds pass -PciIdSuffix=.ci so they install next to the
+        // released app instead of replacing it. Unset for normal builds.
+        val ciIdSuffix = project.findProperty("ciIdSuffix") as String?
+        if (!ciIdSuffix.isNullOrEmpty()) {
+            applicationIdSuffix = ciIdSuffix
+        }
     }
 
     signingConfigs {
