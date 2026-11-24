@@ -14,6 +14,8 @@ import com.alchemistaloha.xflow.core.model.MediaFilter
 import com.alchemistaloha.xflow.core.model.Subscription
 import com.alchemistaloha.xflow.core.model.Tweet
 import com.alchemistaloha.xflow.core.model.TweetResponse
+import com.alchemistaloha.xflow.core.translate.Translation
+import com.alchemistaloha.xflow.core.translate.TranslationResult
 import com.alchemistaloha.xflow.core.util.AppLogger
 import com.alchemistaloha.xflow.data.db.Repository
 import kotlinx.coroutines.CancellationException
@@ -1036,6 +1038,68 @@ class TwitterClient {
         "Posting tweet (${text.length} chars)", "Error posting tweet",
         graphqlCreateTweetUriPath, TwitterParser.postTweetBody(text, inReplyToTweetId),
     )
+
+    /**
+     * X's "Translate post" for one post, into [targetLang]. Tries the endpoint the web client
+     * uses now on both of its hosts, then the one it used before. Every attempt is logged, so
+     * a log shows which one answered.
+     */
+    suspend fun translateTweet(tweetId: String, targetLang: String): TranslationResult {
+        var cancelledWhileWaiting = false
+        var waiting = false
+        try {
+            AppLogger.log("Translate: post $tweetId into $targetLang")
+            waiting = true
+            waitForTurn()
+            waiting = false
+
+            var last: TranslationResult = TranslationResult.Failure("no answer")
+            val body = Translation.grokBody(tweetId, targetLang)
+            for (uri in Translation.grokUris()) {
+                val response = TwitterAccount.fetch(uri, method = "POST", body = body)
+                if (response.statusCode == 200) {
+                    val result = Translation.parseGrok(response.body)
+                    AppLogger.log(
+                        "Translate: grok ${uri.host} 200 -> " + when (result) {
+                            is TranslationResult.Success -> "ok chars=${result.text.length}"
+                            is TranslationResult.Failure ->
+                                "unusable (${result.reason}) body=${FetchDiagnostics.shorten(response.body, 300) ?: "(empty)"}"
+                        },
+                    )
+                    if (result is TranslationResult.Success) return result
+                    last = result
+                } else {
+                    AppLogger.log("Translate: grok ${uri.host} HTTP ${response.statusCode}")
+                    last = TranslationResult.Failure("HTTP ${response.statusCode}")
+                    if (response.statusCode == 429) return TranslationResult.Failure("rate limited, try later")
+                }
+            }
+
+            val response = TwitterAccount.fetch(Translation.legacyUri(tweetId, targetLang))
+            if (response.statusCode == 200) {
+                val result = Translation.parseLegacy(response.body)
+                AppLogger.log(
+                    "Translate: legacy 200 -> " + when (result) {
+                        is TranslationResult.Success -> "ok chars=${result.text.length} from=${result.sourceLang}"
+                        is TranslationResult.Failure ->
+                            "unusable (${result.reason}) body=${FetchDiagnostics.shorten(response.body, 300) ?: "(empty)"}"
+                    },
+                )
+                if (result is TranslationResult.Success) return result
+            } else {
+                AppLogger.log("Translate: legacy HTTP ${response.statusCode}")
+            }
+            return last
+        } catch (e: CancellationException) {
+            cancelledWhileWaiting = waiting
+            throw e
+        } catch (e: Exception) {
+            AppLogger.log("Translate: failed: $e")
+            return TranslationResult.Failure(e.message ?: e::class.simpleName ?: "error")
+        } finally {
+            if (!cancelledWhileWaiting) releaseTurn()
+        }
+    }
 
     suspend fun fetchTweetDetail(focalTweetId: String, cursor: String? = null): TweetResponse {
         val uri = TwitterParser.tweetDetailUri(focalTweetId, cursor)

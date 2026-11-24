@@ -8,6 +8,7 @@ import com.alchemistaloha.xflow.core.util.AppLogger
 import com.alchemistaloha.xflow.data.client.TwitterAccount
 import com.alchemistaloha.xflow.data.db.Repository
 import com.alchemistaloha.xflow.data.settings.SettingsStore
+import com.alchemistaloha.xflow.data.settings.ViewerPrefs
 import com.alchemistaloha.xflow.player.MediaCache
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +33,7 @@ class XFlowApp : Application(), SingletonImageLoader.Factory {
         // (worst case: default settings, or the login screen).
         AppGraph.scope.launch {
             step("settings") { withContext(Dispatchers.IO) { SettingsStore.init(this@XFlowApp) } }
+            step("viewer settings") { withContext(Dispatchers.IO) { ViewerPrefs.init() } }
             step("database") { Repository.open() }
             step("account") { TwitterAccount.init() }
             step("summary") {

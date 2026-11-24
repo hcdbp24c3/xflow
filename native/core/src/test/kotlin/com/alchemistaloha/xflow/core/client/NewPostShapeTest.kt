@@ -64,10 +64,15 @@ class NewPostShapeTest {
         assertEquals(4, v.replyCount)
         assertEquals(9, v.retweetCount)
         assertEquals(6645, v.viewCount)
+        // What translation and subtitles need: the post's language and the video's playlist.
+        assertEquals("en", v.lang)
+        assertEquals("https://video.example/pl.m3u8", v.hlsUrl)
 
         val p = tweets[1]
         assertEquals(listOf("https://pbs.example/p.jpg"), p.mediaUrls)
         assertEquals(false, p.isVideo)
+        assertEquals("en", p.lang)
+        assertNull(p.hlsUrl)
         assertEquals(7, p.favoriteCount)
     }
 

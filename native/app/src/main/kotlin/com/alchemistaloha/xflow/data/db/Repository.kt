@@ -215,10 +215,71 @@ object Repository {
         Unit
     }
 
+    // ---- post extras -------------------------------------------------------
+    // The language and the HLS playlist of a post. The cached media table keeps the layout
+    // the Flutter app gave it, so these live in a table of their own that Flutter never reads.
+
+    private const val tableTweetExtras = "tweet_extras"
+
+    @Volatile private var extrasReady = false
+
+    private fun extrasTable(db: SQLiteDatabase): Boolean {
+        if (extrasReady) return true
+        return try {
+            db.execSQL("CREATE TABLE IF NOT EXISTS $tableTweetExtras (id TEXT PRIMARY KEY, lang TEXT, hls_url TEXT)")
+            extrasReady = true
+            true
+        } catch (e: Exception) {
+            AppLogger.log("XFLOW: Could not create $tableTweetExtras: $e")
+            false
+        }
+    }
+
+    private fun saveExtras(db: SQLiteDatabase, tweets: List<Tweet>) {
+        val withExtras = tweets.filter { it.lang != null || it.hlsUrl != null }
+        if (withExtras.isEmpty() || !extrasTable(db)) return
+        try {
+            db.inTransaction {
+                for (tweet in withExtras) {
+                    val values = ContentValues().apply {
+                        put("id", tweet.id)
+                        put("lang", tweet.lang)
+                        put("hls_url", tweet.hlsUrl)
+                    }
+                    db.insertWithOnConflict(tableTweetExtras, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+                }
+            }
+        } catch (e: Exception) {
+            AppLogger.log("XFLOW: Could not save post extras: $e")
+        }
+    }
+
+    /** Language and playlist of a post seen before: `lang to hlsUrl`, or null when nothing is stored. */
+    suspend fun getTweetExtras(id: String): Pair<String?, String?>? = io {
+        val db = database
+        if (!extrasTable(db)) return@io null
+        try {
+            db.rawQuery("SELECT lang, hls_url FROM $tableTweetExtras WHERE id = ?", arrayOf(id)).use { c ->
+                if (c.moveToFirst()) {
+                    (if (c.isNull(0)) null else c.getString(0)) to (if (c.isNull(1)) null else c.getString(1))
+                } else {
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            AppLogger.log("XFLOW: Could not read post extras: $e")
+            null
+        }
+    }
+
+    /** Keeps the extras of a post that was looked up on its own (it may not be in the cache). */
+    suspend fun saveTweetExtras(tweet: Tweet) = io { saveExtras(database, listOf(tweet)) }
+
     // ---- cached media ------------------------------------------------------
 
     suspend fun insertCachedMedia(tweets: List<Tweet>) = io {
         val db = database
+        saveExtras(db, tweets)
         db.inTransaction {
             for (tweet in tweets) {
                 val values = ContentValues().apply {
@@ -391,6 +452,18 @@ object Repository {
         if (deleteCount > 0) {
             db.execSQL(RepositorySql.PRUNE_OLDEST_SQL, arrayOf<Any>(deleteCount))
         }
+
+        // Extras of posts that are gone from the cache and are not bookmarked.
+        if (extrasTable(db)) {
+            try {
+                db.execSQL(
+                    "DELETE FROM $tableTweetExtras WHERE id NOT IN (SELECT id FROM $tableCachedMedia) " +
+                        "AND id NOT IN (SELECT ${BookmarkFields.tweetId} FROM ${BookmarkFields.tableBookmarks})",
+                )
+            } catch (e: Exception) {
+                AppLogger.log("XFLOW: Could not prune post extras: $e")
+            }
+        }
     }
 
     suspend fun purgeSeenMetadata() = io {
@@ -487,6 +560,30 @@ object Repository {
                 )
             )
         }
-        return out
+        return withExtras(out)
+    }
+
+    /** Puts the stored language and playlist back on posts read from the cache. */
+    private fun withExtras(tweets: List<Tweet>): List<Tweet> {
+        if (tweets.isEmpty()) return tweets
+        val db = database
+        if (!extrasTable(db)) return tweets
+        return try {
+            val extras = HashMap<String, Pair<String?, String?>>()
+            db.rawQuery("SELECT id, lang, hls_url FROM $tableTweetExtras", null).use { c ->
+                while (c.moveToNext()) {
+                    extras[c.getString(0)] =
+                        (if (c.isNull(1)) null else c.getString(1)) to (if (c.isNull(2)) null else c.getString(2))
+                }
+            }
+            if (extras.isEmpty()) return tweets
+            tweets.map { tweet ->
+                val found = extras[tweet.id] ?: return@map tweet
+                tweet.copy(lang = found.first, hlsUrl = found.second)
+            }
+        } catch (e: Exception) {
+            AppLogger.log("XFLOW: Could not read post extras: $e")
+            tweets
+        }
     }
 }
