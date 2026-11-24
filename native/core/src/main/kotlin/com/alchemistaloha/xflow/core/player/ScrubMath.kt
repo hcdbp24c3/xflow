@@ -6,60 +6,85 @@ import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
 /**
- * Sizes (in dp) of the strip along the bottom edge of a feed page: the video seek bar or the
- * image position bar, and how far both stay away from the tab bar underneath.
+ * Sizes (in dp) of the strip along the bottom of a feed page: the video seek bar or the image
+ * position bar, and how they share the edge with the tab bar underneath.
  *
- * The feed page ends exactly where the tab bar begins. The line used to sit on that edge with
- * a 24dp touch strip above it, so a finger aimed at the line landed on a tab half of the time.
- * Now the line is lifted, the touch strip is taller and grows upwards, and the top of the tab
- * bar ignores touches.
+ * Like TikTok, the line lies directly on the top edge of the tab bar and its round thumb
+ * rides on that edge. To make that possible without a finger aimed at the line landing on a
+ * tab, a feed page reaches [TAB_OVERLAP] under the tab bar: those rows look like the top of
+ * the tab bar, but they belong to the page, so a touch there seeks instead of switching tabs.
+ * The touch strip grows upwards from there.
+ *
+ * "Edge" below is the visible top edge of the tab bar.
  */
 object BottomEdgeLayout {
-    /** Height of the strip that takes seek / image-scrub touches, from the page's bottom edge up. */
-    const val TOUCH_HEIGHT = 44f
+    /** Height of the tab bar's row of tabs. */
+    const val TAB_BAR_HEIGHT = 54f
 
-    /** Distance from the page's bottom edge (the top of the tab bar) to the centre of the line. */
-    const val LINE_FROM_BOTTOM = 16f
+    /** How far a feed page reaches under the top of the tab bar. These rows never switch tabs. */
+    const val TAB_OVERLAP = 12f
 
-    /** Rows at the top of the tab bar that do not react, so a low touch on the line is not a tab. */
-    const val TAB_GUARD = 8f
+    /** Kept for the tab bar: its own top rows ignore touches wherever a page does not cover them. */
+    const val TAB_GUARD = TAB_OVERLAP
 
-    /** The tap layer (play/pause, double tap) and the caption stop this far above the bottom edge. */
-    const val CONTENT_CLEARANCE = TOUCH_HEIGHT
+    /** What is left of a tab to press, below the rows that belong to the page. */
+    const val TAB_ACTIVE_HEIGHT = TAB_BAR_HEIGHT - TAB_OVERLAP
+
+    /** Touch strip above the edge. The tap layer and the caption stop here. */
+    const val TOUCH_ABOVE_EDGE = 32f
+
+    /** Touch strip below the edge: all of the overlap. */
+    const val TOUCH_BELOW_EDGE = TAB_OVERLAP
+
+    /** Height of the strip that takes seek / image-scrub touches, from the page's bottom up. */
+    const val TOUCH_HEIGHT = TOUCH_ABOVE_EDGE + TOUCH_BELOW_EDGE
 
     const val TRACK_HEIGHT = 2f
     const val TRACK_HEIGHT_ACTIVE = 5f
     const val THUMB_SIZE = 8f
     const val THUMB_SIZE_ACTIVE = 16f
 
-    /** Touch strip above the line and below it (down to the tab bar). */
-    const val TOUCH_ABOVE_LINE = TOUCH_HEIGHT - LINE_FROM_BOTTOM
-    const val TOUCH_BELOW_LINE = LINE_FROM_BOTTOM
+    /** Centre of the line above the edge: the resting 2dp line sits on the edge with no gap. */
+    const val LINE_ABOVE_EDGE = TRACK_HEIGHT / 2
+
+    /** Gap between the resting line and the tab bar. */
+    const val LINE_GAP = LINE_ABOVE_EDGE - TRACK_HEIGHT / 2
+
+    /** Centre of the line above the bottom of the page (the page ends [TAB_OVERLAP] under the edge). */
+    const val LINE_FROM_BOTTOM = TAB_OVERLAP + LINE_ABOVE_EDGE
+
+    /** The caption, the buttons and the tap layer (play/pause, double tap) stop this far above the edge. */
+    const val CONTENT_CLEARANCE = TOUCH_ABOVE_EDGE
+
+    /** How far the thumb hangs over the edge, at rest and grown. Both stay inside the overlap. */
+    const val THUMB_OVERHANG = THUMB_SIZE / 2 - LINE_ABOVE_EDGE
+    const val THUMB_OVERHANG_ACTIVE = THUMB_SIZE_ACTIVE / 2 - LINE_ABOVE_EDGE
 
     /**
-     * A tap seeks only when it lands on the line or up to this far above it. Higher up in the
-     * strip a tap is still play/pause, so reaching for the bottom of the video does not jump it.
+     * A tap seeks only when it lands on the line, under it, or up to this far above it. Higher
+     * up in the strip a tap is still play/pause, so reaching for the bottom of the video does
+     * not jump it.
      */
-    const val TAP_SEEK_ABOVE_LINE = 14f
+    const val TAP_SEEK_ABOVE_LINE = 16f
 
-    /** True when a tap [yAboveBottom] dp above the page's bottom edge is meant for the line. */
+    /** True when a tap [yAboveBottom] dp above the bottom of the page is meant for the line. */
     fun tapSeeks(yAboveBottom: Float): Boolean = yAboveBottom <= LINE_FROM_BOTTOM + TAP_SEEK_ABOVE_LINE
 
-    /** From the centre of the line down to the first row of the tab bar that reacts. */
-    const val LINE_TO_ACTIVE_TAB = LINE_FROM_BOTTOM + TAB_GUARD
+    /** From the centre of the line down to the first row that switches tabs. */
+    const val LINE_TO_ACTIVE_TAB = LINE_ABOVE_EDGE + TAB_OVERLAP
 
     /**
-     * Which control a touch at [yBelowPageBottom] dp belongs to (negative = above the page's
-     * bottom edge, positive = inside the tab bar).
+     * Which control a touch at [yBelowEdge] dp belongs to on a feed page (negative = above the
+     * top edge of the tab bar, positive = inside it).
      */
-    fun zoneAt(yBelowPageBottom: Float): Zone = when {
-        yBelowPageBottom < -TOUCH_HEIGHT -> Zone.CONTENT
-        yBelowPageBottom < 0f -> Zone.SCRUB
-        yBelowPageBottom < TAB_GUARD -> Zone.GUARD
-        else -> Zone.TAB
+    fun zoneAt(yBelowEdge: Float): Zone = when {
+        yBelowEdge < -TOUCH_ABOVE_EDGE -> Zone.CONTENT
+        yBelowEdge < TOUCH_BELOW_EDGE -> Zone.SCRUB
+        yBelowEdge < TAB_BAR_HEIGHT -> Zone.TAB
+        else -> Zone.BELOW
     }
 
-    enum class Zone { CONTENT, SCRUB, GUARD, TAB }
+    enum class Zone { CONTENT, SCRUB, TAB, BELOW }
 }
 
 /** What a finger that went down on a scrub strip is doing. */

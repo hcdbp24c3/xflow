@@ -49,6 +49,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -167,8 +170,12 @@ private fun MainScaffold() {
     }
 
     Box(Modifier.fillMaxSize()) {
+        // Feed pages reach a little under the top of the tab bar (see BottomEdgeLayout), so the
+        // seek bar can lie on the bar's edge. Every other screen stops at the edge.
+        val overlap = if (Fullscreen.isActive) 0.dp else BottomEdgeLayout.TAB_OVERLAP.dp
         Column(Modifier.fillMaxSize()) {
-            Box(Modifier.weight(1f).fillMaxWidth()) {
+            // Above the tab bar in z-order: where the two overlap, the page is drawn and touched.
+            Box(Modifier.weight(1f).fillMaxWidth().zIndex(1f)) {
                 // The three tabs stay alive (like an IndexedStack); only the current one shows.
                 // They are hidden, not removed, while an overlay covers them.
                 for (tab in MainTab.entries) {
@@ -182,8 +189,12 @@ private fun MainScaffold() {
                         stateHolder.SaveableStateProvider(tab.name) {
                             when (tab) {
                                 MainTab.media -> TiktokFeedScreen()
-                                MainTab.subscriptions -> SubscriptionListScreen(isStandalone = false)
-                                MainTab.trending -> HashtagListScreen()
+                                MainTab.subscriptions -> Box(Modifier.fillMaxSize().padding(bottom = overlap)) {
+                                    SubscriptionListScreen(isStandalone = false)
+                                }
+                                MainTab.trending -> Box(Modifier.fillMaxSize().padding(bottom = overlap)) {
+                                    HashtagListScreen()
+                                }
                             }
                         }
                     }
@@ -214,13 +225,21 @@ private fun MainScaffold() {
                                 initialTweetId = nav.userMediaInitialTweetId,
                             )
                         }
-                        key.startsWith("user:") -> OverlayBox { UserDetailsScreen(screenName = value) }
+                        key.startsWith("user:") -> OverlayBox(bottomInset = overlap) {
+                            UserDetailsScreen(screenName = value)
+                        }
                         else -> Box(Modifier)
                     }
                 }
             }
             if (!Fullscreen.isActive) {
                 BottomBar(
+                    // Its top rows lie under the screen above it.
+                    modifier = Modifier.layout { measurable, constraints ->
+                        val placeable = measurable.measure(constraints)
+                        val under = BottomEdgeLayout.TAB_OVERLAP.dp.roundToPx().coerceAtMost(placeable.height)
+                        layout(placeable.width, placeable.height - under) { placeable.place(0, -under) }
+                    },
                     current = nav.currentTab,
                     onSelected = { tab ->
                         NavigationStore.setTab(tab)
@@ -240,8 +259,10 @@ private fun MainScaffold() {
 }
 
 @Composable
-private fun OverlayBox(content: @Composable () -> Unit) {
-    Box(Modifier.fillMaxSize().background(AppColors.background).blockTouches()) { content() }
+private fun OverlayBox(bottomInset: Dp = 0.dp, content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxSize().blockTouches()) {
+        Box(Modifier.fillMaxSize().padding(bottom = bottomInset).background(AppColors.background)) { content() }
+    }
 }
 
 /** Touches on empty parts of a covering screen must not reach what is underneath. */
@@ -273,22 +294,22 @@ private val bottomItems = listOf(
 
 /** A slim, flat tab bar: icon over a small label, no pill indicator. */
 @Composable
-private fun BottomBar(current: MainTab, onSelected: (MainTab) -> Unit) {
+private fun BottomBar(current: MainTab, onSelected: (MainTab) -> Unit, modifier: Modifier = Modifier) {
     val outline = AppColors.outline
     Box(
-        Modifier
+        modifier
             .fillMaxWidth()
             .background(AppColors.background)
             .drawBehind { drawLine(outline, Offset.Zero, Offset(size.width, 0f), strokeWidth = 0.5.dp.toPx()) }
             .navigationBarsPadding(),
     ) {
-        Row(Modifier.fillMaxWidth().height(54.dp)) {
+        Row(Modifier.fillMaxWidth().height(BottomEdgeLayout.TAB_BAR_HEIGHT.dp)) {
             for (item in bottomItems) {
                 val selected = item.tab == current
                 val color = if (selected) AppColors.textPrimary else AppColors.textTertiary
                 PressableScale(
                     onTap = { onSelected(item.tab) },
-                    modifier = Modifier.weight(1f).height(54.dp),
+                    modifier = Modifier.weight(1f).height(BottomEdgeLayout.TAB_BAR_HEIGHT.dp),
                     pressedScale = 0.92f,
                     tooltip = item.label,
                 ) {
@@ -319,8 +340,9 @@ private fun BottomBar(current: MainTab, onSelected: (MainTab) -> Unit) {
                 }
             }
         }
-        // The feed's seek bar and image bar end right above this bar. A finger aimed at them
-        // that lands a little low hits these rows, which do nothing, instead of a tab.
+        // The feed's seek bar and image bar lie on this bar's top edge, and a feed page covers
+        // these rows, so a touch that lands a little low seeks. Where no page covers them they
+        // do nothing, so the tabs react the same on every screen.
         Box(Modifier.fillMaxWidth().height(BottomEdgeLayout.TAB_GUARD.dp).blockTouches())
     }
 }

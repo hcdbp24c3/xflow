@@ -25,6 +25,7 @@ import com.alchemistaloha.xflow.data.profile.UserMediaStores
 import com.alchemistaloha.xflow.data.settings.SettingsStore
 import com.alchemistaloha.xflow.ui.feed.Fullscreen
 import com.alchemistaloha.xflow.ui.feed.MediaPager
+import com.alchemistaloha.xflow.ui.feed.TabBarEdge
 import com.alchemistaloha.xflow.ui.feed.TiktokFeedItem
 import com.alchemistaloha.xflow.ui.feed.rememberMediaPagerController
 import com.alchemistaloha.xflow.ui.nav.NavigationStore
@@ -82,6 +83,8 @@ fun UserMediaFeedScreen(screenName: String, initialIndex: Int, initialTweetId: S
     }
 
     Box(Modifier.fillMaxSize().background(AppColors.background)) {
+        // This screen reaches a little under the tab bar; these rows are painted like the bar.
+        TabBarEdge(Modifier.align(Alignment.BottomCenter))
         when (val feed = feedAsync) {
             is Async.Data -> {
                 val state = feed.value

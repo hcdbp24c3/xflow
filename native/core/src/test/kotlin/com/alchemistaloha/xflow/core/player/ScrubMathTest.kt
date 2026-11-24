@@ -12,44 +12,72 @@ class ScrubMathTest {
 
     @Test fun theScrubStripIsTallEnoughToHit() {
         assertTrue(BottomEdgeLayout.TOUCH_HEIGHT >= 40f)
-        assertEquals(BottomEdgeLayout.TOUCH_HEIGHT, BottomEdgeLayout.TOUCH_ABOVE_LINE + BottomEdgeLayout.TOUCH_BELOW_LINE, 0f)
+        assertEquals(44f, BottomEdgeLayout.TOUCH_HEIGHT, 0f)
+        assertEquals(BottomEdgeLayout.TOUCH_HEIGHT, BottomEdgeLayout.TOUCH_ABOVE_EDGE + BottomEdgeLayout.TOUCH_BELOW_EDGE, 0f)
     }
 
-    @Test fun theStripGrowsUpwardsNotIntoTheTabBar() {
-        assertTrue(BottomEdgeLayout.TOUCH_ABOVE_LINE > BottomEdgeLayout.TOUCH_BELOW_LINE)
-        // The strip ends on the page's bottom edge: nothing of it lies inside the tab bar.
+    @Test fun theLineSitsOnTheTabBarWithNoGap() {
+        assertEquals(0f, BottomEdgeLayout.LINE_GAP, 0f)
+        assertEquals(1f, BottomEdgeLayout.LINE_ABOVE_EDGE, 0f)
+        // Measured from the bottom of the page, which ends under the tab bar.
+        assertEquals(BottomEdgeLayout.TAB_OVERLAP + 1f, BottomEdgeLayout.LINE_FROM_BOTTOM, 0f)
+    }
+
+    @Test fun theThumbRidesOnTheEdgeAndIsNeverCutOff() {
+        // It hangs over the edge, like TikTok's...
+        assertTrue(BottomEdgeLayout.THUMB_OVERHANG > 0f)
+        assertEquals(3f, BottomEdgeLayout.THUMB_OVERHANG, 0f)
+        assertEquals(7f, BottomEdgeLayout.THUMB_OVERHANG_ACTIVE, 0f)
+        // ...but the page reaches further under the tab bar than the grown thumb (and its 1dp
+        // ring), so nothing clips it.
+        assertTrue(BottomEdgeLayout.THUMB_OVERHANG_ACTIVE + 1f <= BottomEdgeLayout.TAB_OVERLAP)
+        assertTrue(BottomEdgeLayout.TRACK_HEIGHT_ACTIVE / 2 - BottomEdgeLayout.LINE_ABOVE_EDGE < BottomEdgeLayout.TAB_OVERLAP)
+    }
+
+    @Test fun theStripGrowsUpwardsAndTakesOnlyTheTopRowsOfTheTabBar() {
+        assertTrue(BottomEdgeLayout.TOUCH_ABOVE_EDGE > BottomEdgeLayout.TOUCH_BELOW_EDGE)
+        assertTrue(BottomEdgeLayout.TOUCH_ABOVE_EDGE >= 28f)
+        assertTrue(BottomEdgeLayout.TOUCH_BELOW_EDGE in 10f..12f)
+        // Just above and just below the edge: both seek.
         assertEquals(Zone.SCRUB, BottomEdgeLayout.zoneAt(-0.5f))
-        assertEquals(Zone.GUARD, BottomEdgeLayout.zoneAt(0f))
-    }
-
-    @Test fun theLineIsWellClearOfTheFirstRowThatSwitchesTabs() {
-        // Before: the 2dp line sat on the edge, 1dp above a live tab.
-        assertTrue(BottomEdgeLayout.LINE_TO_ACTIVE_TAB >= 24f)
-        // The grown thumb does not reach the tab bar either.
-        assertTrue(BottomEdgeLayout.THUMB_SIZE_ACTIVE / 2 < BottomEdgeLayout.LINE_FROM_BOTTOM)
+        assertEquals(Zone.SCRUB, BottomEdgeLayout.zoneAt(0f))
+        assertEquals(Zone.SCRUB, BottomEdgeLayout.zoneAt(11.9f))
+        assertEquals(Zone.TAB, BottomEdgeLayout.zoneAt(12f))
     }
 
     @Test fun aTouchAimedAtTheLineStaysOutOfTheTabsEvenWhenItLandsLow() {
-        val line = -BottomEdgeLayout.LINE_FROM_BOTTOM
+        val line = -BottomEdgeLayout.LINE_ABOVE_EDGE
         assertEquals(Zone.SCRUB, BottomEdgeLayout.zoneAt(line))
-        assertEquals(Zone.SCRUB, BottomEdgeLayout.zoneAt(line + 15f))
-        // 20dp too low: inside the tab bar, but on the rows that ignore touches.
-        assertEquals(Zone.GUARD, BottomEdgeLayout.zoneAt(line + 20f))
-        assertEquals(Zone.GUARD, BottomEdgeLayout.zoneAt(line + 23.9f))
-        assertEquals(Zone.TAB, BottomEdgeLayout.zoneAt(line + 24f))
+        // Up to 13dp too low is still a seek, not a tab (it was 1dp when the line first sat here).
+        assertEquals(13f, BottomEdgeLayout.LINE_TO_ACTIVE_TAB, 0f)
+        assertEquals(Zone.SCRUB, BottomEdgeLayout.zoneAt(line + 12.9f))
+        assertEquals(Zone.TAB, BottomEdgeLayout.zoneAt(line + 13f))
+    }
+
+    @Test fun theTabsKeepMostOfTheirHeightAndAllOfTheirIconAndLabel() {
+        assertEquals(42f, BottomEdgeLayout.TAB_ACTIVE_HEIGHT, 0f)
+        assertEquals(BottomEdgeLayout.TAB_OVERLAP, BottomEdgeLayout.TAB_GUARD, 0f)
+        // A tab is a 24dp icon, 3dp, and a label of about 13dp, centred in 54dp: it starts 7dp
+        // down, so only the top 5dp of the icon lies on rows that do not switch tabs.
+        val contentTop = (BottomEdgeLayout.TAB_BAR_HEIGHT - (24f + 3f + 13f)) / 2
+        assertTrue(BottomEdgeLayout.TAB_OVERLAP - contentTop <= 5f)
+        assertEquals(Zone.TAB, BottomEdgeLayout.zoneAt(BottomEdgeLayout.TAB_BAR_HEIGHT - 0.1f))
+        assertEquals(Zone.BELOW, BottomEdgeLayout.zoneAt(BottomEdgeLayout.TAB_BAR_HEIGHT))
     }
 
     @Test fun aboveTheStripTouchesBelongToTheVideo() {
-        assertEquals(Zone.CONTENT, BottomEdgeLayout.zoneAt(-BottomEdgeLayout.TOUCH_HEIGHT - 0.5f))
-        assertEquals(Zone.SCRUB, BottomEdgeLayout.zoneAt(-BottomEdgeLayout.TOUCH_HEIGHT))
-        assertEquals(BottomEdgeLayout.TOUCH_HEIGHT, BottomEdgeLayout.CONTENT_CLEARANCE, 0f)
+        assertEquals(Zone.CONTENT, BottomEdgeLayout.zoneAt(-BottomEdgeLayout.TOUCH_ABOVE_EDGE - 0.5f))
+        assertEquals(Zone.SCRUB, BottomEdgeLayout.zoneAt(-BottomEdgeLayout.TOUCH_ABOVE_EDGE))
+        assertEquals(BottomEdgeLayout.TOUCH_ABOVE_EDGE, BottomEdgeLayout.CONTENT_CLEARANCE, 0f)
     }
 
     @Test fun aTapSeeksNearTheLineAndIsPlayPauseHigherUp() {
+        // Under the line (the rows inside the tab bar) and on it.
         assertTrue(BottomEdgeLayout.tapSeeks(0f))
         assertTrue(BottomEdgeLayout.tapSeeks(BottomEdgeLayout.LINE_FROM_BOTTOM))
-        assertTrue(BottomEdgeLayout.tapSeeks(30f))
-        assertFalse(BottomEdgeLayout.tapSeeks(30.5f))
+        // 16dp above the line is the last row that seeks; the top 15dp of the strip is play/pause.
+        assertTrue(BottomEdgeLayout.tapSeeks(29f))
+        assertFalse(BottomEdgeLayout.tapSeeks(29.5f))
         assertFalse(BottomEdgeLayout.tapSeeks(BottomEdgeLayout.TOUCH_HEIGHT))
     }
 

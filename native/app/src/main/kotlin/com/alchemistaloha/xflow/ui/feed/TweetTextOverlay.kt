@@ -113,8 +113,8 @@ fun TweetTextOverlay(
     onFullscreen: (() -> Unit)? = null,
     isFullscreen: Boolean = false,
 ) {
-    // Clear of the seek / image bar's touch strip along the bottom edge.
-    val bottomPadding = if (isFullscreen) 48.dp else (BottomEdgeLayout.TOUCH_HEIGHT + 6f).dp
+    // Clear of the seek / image bar's touch strip above the tab bar.
+    val bottomPadding = if (isFullscreen) 48.dp else (BottomEdgeLayout.CONTENT_CLEARANCE + 6f).dp
     val rightPadding = if (isFullscreen) 24.dp else 6.dp
 
     Box(modifier.fillMaxSize()) {

@@ -72,6 +72,8 @@ fun TiktokFeedScreen() {
     val pager = rememberMediaPagerController()
 
     Box(Modifier.fillMaxSize().background(AppColors.background)) {
+        // This screen reaches a little under the tab bar; these rows are painted like the bar.
+        TabBarEdge(Modifier.align(Alignment.BottomCenter))
         MediaFeed(pager)
 
         if (!Fullscreen.isActive) {

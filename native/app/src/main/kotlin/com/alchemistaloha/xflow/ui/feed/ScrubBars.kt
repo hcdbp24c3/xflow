@@ -41,12 +41,14 @@ import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.C
 import androidx.media3.exoplayer.ExoPlayer
 import com.alchemistaloha.xflow.core.player.BottomEdgeLayout
+import com.alchemistaloha.xflow.ui.theme.AppColors
 import com.alchemistaloha.xflow.core.player.DragAxis
 import com.alchemistaloha.xflow.core.player.ScrubMath
 import com.alchemistaloha.xflow.core.player.formatSeekTime
@@ -56,6 +58,31 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+
+/**
+ * How far a feed page reaches under the tab bar right now. Nothing in full screen: the tab bar
+ * is gone and the video has the whole window.
+ */
+internal val tabBarOverlap: Dp
+    get() = if (Fullscreen.isActive) 0.dp else BottomEdgeLayout.TAB_OVERLAP.dp
+
+/**
+ * The rows of a feed screen that lie under the top of the tab bar, painted like the tab bar
+ * (its colour and its hairline), so the bar looks whole. Goes behind the pager: every page
+ * leaves these rows clear except for its seek / image bar, whose thumb rides on the edge.
+ */
+@Composable
+internal fun TabBarEdge(modifier: Modifier = Modifier) {
+    if (Fullscreen.isActive) return
+    val outline = AppColors.outline
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(BottomEdgeLayout.TAB_OVERLAP.dp)
+            .background(AppColors.background)
+            .drawBehind { drawLine(outline, Offset.Zero, Offset(size.width, 0f), strokeWidth = 0.5.dp.toPx()) },
+    )
+}
 
 private enum class ScrubEnd { TAP, SCRUB, ABANDONED }
 
@@ -100,8 +127,9 @@ private suspend fun AwaitPointerEventScope.awaitScrub(
 /**
  * The video seek bar, TikTok style.
  *
- * At rest: a thin line with a small round thumb at the playing position, lifted clear of the
- * tab bar. Touched: the line thickens and the thumb grows; dragged sideways: a
+ * At rest: a thin line lying on the top edge of the tab bar, with a small round thumb at the
+ * playing position riding on that edge. The bar's lowest rows lie under the tab bar (see
+ * [BottomEdgeLayout]), so a touch that lands a little low still seeks. Touched: the line thickens and the thumb grows; dragged sideways: a
  * "current / total" label follows the thumb and the video seeks when the finger lifts.
  *
  * The position is only read while drawing, so the moving thumb redraws this one node and

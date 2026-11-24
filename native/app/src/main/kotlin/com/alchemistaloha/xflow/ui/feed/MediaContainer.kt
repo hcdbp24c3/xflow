@@ -109,7 +109,7 @@ import kotlin.random.Random
 private val HeartSize = 96.dp
 
 /** Above a caption of three lines with its name, date and "Translate" line. */
-private val SubtitleBottomInFeed = 196.dp
+private val SubtitleBottomInFeed = 184.dp
 private val EaseOutBack = CubicBezierEasing(0.175f, 0.885f, 0.32f, 1.275f)
 private val EaseOut = CubicBezierEasing(0f, 0f, 0.58f, 1f)
 private val EaseIn = CubicBezierEasing(0.42f, 0f, 1f, 1f)
@@ -276,8 +276,12 @@ fun TiktokMediaContainer(
     }
 
     // ---- text only ----
+    // Everything on the page stops at the top edge of the tab bar. Only the seek bar and the
+    // image bar use the rows under it (see BottomEdgeLayout).
+    val body = Modifier.fillMaxSize().padding(bottom = tabBarOverlap)
+
     if (tweet.mediaUrls.isEmpty()) {
-        Box(modifier.fillMaxSize()) {
+        Box(modifier.then(body)) {
             TextTweetCard(tweet)
             overlay?.invoke(null, false)
         }
@@ -288,18 +292,20 @@ fun TiktokMediaContainer(
     if (!tweet.isVideo) {
         Box(modifier.fillMaxSize()) {
             val pagerState = rememberPagerState { tweet.mediaUrls.size }
-            Box(Modifier.fillMaxSize().then(tapModifier)) {
-                if (tweet.mediaUrls.size == 1) {
-                    FeedImage(tweet.mediaUrls.first())
-                } else {
-                    HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { index ->
-                        FeedImage(tweet.mediaUrls[index])
+            Box(body) {
+                Box(Modifier.fillMaxSize().then(tapModifier)) {
+                    if (tweet.mediaUrls.size == 1) {
+                        FeedImage(tweet.mediaUrls.first())
+                    } else {
+                        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { index ->
+                            FeedImage(tweet.mediaUrls[index])
+                        }
                     }
                 }
+                LikeHeart(heartProgress.value, heartPosition, heartAngle)
+                overlay?.invoke(null, false)
             }
-            LikeHeart(heartProgress.value, heartPosition, heartAngle)
-            overlay?.invoke(null, false)
-            // Position bar on the bottom edge, where the video seek bar is: drag it to slide
+            // Position bar on the tab bar's edge, where the video seek bar is: drag it to slide
             // through the images, tap a segment to jump.
             ImagePositionBar(
                 pagerState,
@@ -314,7 +320,7 @@ fun TiktokMediaContainer(
     if (player == null) {
         // No player yet: show the poster and the overlay rather than a bare spinner, so the
         // page already looks like itself while swiping in.
-        Box(modifier.fillMaxSize()) {
+        Box(modifier.then(body)) {
             Thumbnail(tweet.thumbnailUrl)
             ThinSpinner(Modifier.align(Alignment.Center))
             overlay?.invoke(null, false)
@@ -447,7 +453,7 @@ fun TiktokMediaContainer(
 
     val failureText = failure
     if (failureText != null && retryCount >= SettingsStore.state.value.playbackRetryLimit) {
-        Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Box(modifier.then(body), contentAlignment = Alignment.Center) {
             Column(
                 modifier = Modifier.padding(horizontal = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -470,6 +476,7 @@ fun TiktokMediaContainer(
     }
 
     Box(modifier.fillMaxSize()) {
+      Box(body) {
         // Thumbnail placeholder, shows while the video is loading
         Thumbnail(tweet.thumbnailUrl)
 
@@ -552,8 +559,12 @@ fun TiktokMediaContainer(
         } else {
             // Caption and buttons, above the tap layer so their touches are their own.
             overlay?.invoke({ toggleFullscreen() }, false)
-            // Seek bar: a line with a thumb, lifted clear of the tab bar. Last, so its touch
-            // strip wins over whatever is under it.
+        }
+      }
+        // Seek bar: a line on the tab bar's edge with a thumb riding on it. Outside the body,
+        // because its lowest rows lie under the tab bar; last, so its touch strip wins over
+        // whatever is under it.
+        if (!isFullscreen) {
             TiktokSeekBar(
                 player,
                 active = isVisible,
