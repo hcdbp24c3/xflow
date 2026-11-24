@@ -89,25 +89,42 @@ jobs:
             printf 'keyAlias=%s\n' "$CI_KEY_ALIAS"
           } > key.properties
 
-      - name: Build APK (arm64, release mode, minified, signed with the fixed test key)
-        run: ./gradlew :app:assembleRelease -PciIdSuffix=.kt -Pabi=arm64-v8a --stacktrace
+      - name: Build APKs (arm64 and 32-bit arm, release mode, minified, signed with the fixed test key)
+        run: |
+          mkdir -p "$RUNNER_TEMP/apk/arm64-v8a" "$RUNNER_TEMP/apk/armeabi-v7a"
+          for abi in arm64-v8a armeabi-v7a; do
+            ./gradlew :app:assembleRelease -PciIdSuffix=.kt -Pabi="$abi" --stacktrace
+            for apk in app/build/outputs/apk/release/*.apk; do
+              cp "$apk" "$RUNNER_TEMP/apk/$abi/xflow-native-$abi.apk"
+            done
+          done
 
-      - name: Show the signing certificate of the APK
+      - name: Show the signing certificate of the APKs
         run: |
           APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
-          for apk in app/build/outputs/apk/release/*.apk; do
+          for apk in "$RUNNER_TEMP"/apk/*/*.apk; do
+            echo "$apk"
             "$APKSIGNER" verify --print-certs "$apk" | grep -E 'certificate (DN|SHA-256 digest)'
+            unzip -l "$apk" | grep -E 'lib/[^/]+/' | awk '{print $4}' | cut -d/ -f2 | sort -u | sed 's/^/  abi: /' || true
           done
 
       - name: Remove the signing key from the runner
         if: always()
         run: rm -f "$RUNNER_TEMP/xflow-ci.jks" key.properties
 
-      - name: Upload APK
+      - name: Upload APK (arm64)
         uses: actions/upload-artifact@v4
         with:
           name: xflow-native-arm64-apk
-          path: native/app/build/outputs/apk/release/*.apk
+          path: ${{ runner.temp }}/apk/arm64-v8a/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload APK (32-bit arm)
+        uses: actions/upload-artifact@v4
+        with:
+          name: xflow-native-arm32-apk
+          path: ${{ runner.temp }}/apk/armeabi-v7a/*.apk
           if-no-files-found: error
           retention-days: 14
 
