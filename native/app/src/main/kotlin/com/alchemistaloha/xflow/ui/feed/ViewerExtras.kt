@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ClosedCaption
 import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -199,7 +200,12 @@ internal fun subtitleSummary(info: SubtitleInfo?, picked: SubtitleTrack?): Strin
  * video, and translation for a post in another language.
  */
 @Composable
-internal fun FeedMoreSheet(tweet: Tweet, onFullscreen: (() -> Unit)?, onDismiss: () -> Unit) {
+internal fun FeedMoreSheet(
+    tweet: Tweet,
+    onFullscreen: (() -> Unit)?,
+    isFullscreen: Boolean,
+    onDismiss: () -> Unit,
+) {
     val sheet = rememberDraggableSheetState(initialFraction = 0.42f, minFraction = 0.28f, maxFraction = 0.7f)
     val prefs by ViewerPrefs.state.collectAsState()
     LaunchedEffect(tweet.id) { SubtitleStore.load(tweet) }
@@ -215,8 +221,8 @@ internal fun FeedMoreSheet(tweet: Tweet, onFullscreen: (() -> Unit)?, onDismiss:
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
             if (tweet.isVideo && onFullscreen != null) {
                 SheetRow(
-                    icon = Icons.Rounded.Fullscreen,
-                    title = "Full screen",
+                    icon = if (isFullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                    title = if (isFullscreen) "Exit full screen" else "Full screen",
                     onTap = {
                         sheet.close()
                         onFullscreen()

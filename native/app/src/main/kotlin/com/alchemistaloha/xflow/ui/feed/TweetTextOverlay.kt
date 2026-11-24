@@ -225,7 +225,12 @@ private fun ActionButtons(original: Tweet, onFullscreen: (() -> Unit)?, isFullsc
         TweetRepliesSheet(tweet = original, onDismiss = { showReplies = false })
     }
     if (showMore) {
-        FeedMoreSheet(tweet = original, onFullscreen = onFullscreen, onDismiss = { showMore = false })
+        FeedMoreSheet(
+            tweet = original,
+            onFullscreen = onFullscreen,
+            isFullscreen = isFullscreen,
+            onDismiss = { showMore = false },
+        )
     }
 }
 
