@@ -659,7 +659,8 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
                 top: 0,
                 left: 0,
                 right: 0,
-                bottom: 100,
+                // Stops short of the seek bar's touch strip.
+                bottom: 28,
                 child: Listener(
                   behavior: HitTestBehavior.translucent,
                   onPointerDown: _handlePointerDown,
