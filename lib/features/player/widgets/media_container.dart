@@ -10,6 +10,7 @@ import '../../../core/utils/media_cache_manager.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../feed/widgets/text_tweet_card.dart';
 import '../player_pool_provider.dart';
+import '../tap_sequence_detector.dart';
 import '../../settings/settings_provider.dart';
 import '../../feed/feed_provider.dart';
 
@@ -53,8 +54,9 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
   Animation<double>? _likeOpacityAnim;
 
   // Raw tap detection (no GestureDetector — avoids gesture arena conflict)
-  DateTime? _firstTapTime;
-  bool _isDoubleTapPending = false;
+  final TapSequenceDetector _taps = TapSequenceDetector();
+  // Play state before the first tap of a sequence, restored on double tap.
+  bool? _playingBeforeTap;
 
   // Play/pause center icon
   bool _isPlaying = false;
@@ -68,6 +70,10 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
     super.didUpdateWidget(oldWidget);
     if (!oldWidget.isVisible && widget.isVisible) {
       _isAutoFullscreenDone = false;
+    }
+    if (oldWidget.isVisible && !widget.isVisible) {
+      _taps.reset();
+      _playingBeforeTap = null;
     }
     // Reset auto-play flag when tweet changes
     if (oldWidget.tweet.id != widget.tweet.id) {
@@ -98,56 +104,70 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
   }
 
   // --- Raw tap detection (no GestureDetector) ---
-  // Uses Listener to avoid gesture arena competition with overlay buttons.
-  // Skips taps on right side where action buttons live.
+  // Uses Listener to avoid gesture arena competition with the page scroll.
+  // Overlay buttons sit above the Listener and absorb their own touches, so
+  // a touch that reaches here is on the media itself. Swipes also reach
+  // here; TapSequenceDetector rejects them by distance and duration.
 
-  final double _buttonZoneWidth = 80; // Right-side button area to exclude
+  void _handlePointerDown(PointerDownEvent event) {
+    _taps.pointerDown(event.pointer, event.localPosition, event.timeStamp);
+  }
 
-  void _handlePointerDown(PointerDownEvent details) {
-    // Skip taps that land on overlay action buttons (right side)
-    final screenW = MediaQuery.of(context).size.width;
-    if (details.localPosition.dx > screenW - _buttonZoneWidth) return;
+  void _handlePointerMove(PointerMoveEvent event) {
+    _taps.pointerMove(event.pointer, event.localPosition);
+  }
 
-    final now = DateTime.now();
-    final firstTime = _firstTapTime;
+  void _handlePointerCancel(PointerCancelEvent event) {
+    _taps.pointerCancel(event.pointer);
+  }
 
-    if (firstTime != null && now.difference(firstTime).inMilliseconds < 300) {
-      // Double tap detected on second tap down
-      _firstTapTime = null;
-      _isDoubleTapPending = true;
-      _handleDoubleTapAt(details.localPosition);
-    } else {
-      _firstTapTime = now;
-      _isDoubleTapPending = false;
+  void _handlePointerUp(PointerUpEvent event) {
+    final tap =
+        _taps.pointerUp(event.pointer, event.localPosition, event.timeStamp);
+    // A touch on a page that is still sliding in is not for this item.
+    if (!widget.isVisible) return;
+
+    switch (tap.kind) {
+      case TapKind.none:
+        return;
+      case TapKind.single:
+        _togglePlayPause();
+      case TapKind.multi:
+        if (tap.isFirstMulti) _undoPlayPauseToggle();
+        _handleDoubleTapAt(tap.position);
     }
   }
 
-  void _handlePointerUp(PointerUpEvent details) {
-    // Skip taps that land on overlay action buttons (right side)
-    final screenW = MediaQuery.of(context).size.width;
-    if (details.localPosition.dx > screenW - _buttonZoneWidth) {
-      _firstTapTime = null;
-      _isDoubleTapPending = false;
-      return;
+  /// Instant play/pause on the first tap — no waiting for a second tap.
+  void _togglePlayPause() {
+    if (!widget.tweet.isVideo) return;
+    final instance = ref.read(playerPoolProvider)[widget.tweet.id];
+    if (instance == null) return;
+    final wasPlaying = instance.player.state.playing;
+    _playingBeforeTap = wasPlaying;
+    if (wasPlaying) {
+      instance.player.pause();
+    } else {
+      instance.player.play();
     }
+    _showCenterIconBriefly();
+  }
 
-    if (_isDoubleTapPending) {
-      _isDoubleTapPending = false;
-      return;
+  /// The first tap of a double tap already toggled playback; put it back so
+  /// liking a video never pauses it.
+  void _undoPlayPauseToggle() {
+    final before = _playingBeforeTap;
+    _playingBeforeTap = null;
+    if (before == null || !widget.tweet.isVideo) return;
+    final instance = ref.read(playerPoolProvider)[widget.tweet.id];
+    if (instance == null) return;
+    if (before) {
+      instance.player.play();
+    } else {
+      instance.player.pause();
     }
-    if (_firstTapTime != null) {
-      _firstTapTime = null;
-      // Instant play/pause — no delay
-      final pool = ref.read(playerPoolProvider);
-      final instance = pool[widget.tweet.id];
-      if (instance != null) {
-        if (instance.player.state.playing) {
-          instance.player.pause();
-        } else {
-          instance.player.play();
-        }
-        _showCenterIconBriefly();
-      }
+    if (_showCenterIcon && mounted) {
+      setState(() => _showCenterIcon = false);
     }
   }
 
@@ -168,14 +188,14 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
   }
 
   void _handleDoubleTapAt(Offset localPosition) {
-    final tweetId = widget.tweet.id;
-    final tweet = ref.read(feedNotifierProvider).value?.tweets.firstWhere(
-          (t) => t.id == tweetId,
-          orElse: () => widget.tweet,
-        );
-    // Only toggle like if NOT already liked (but always show hearts — TikTok style)
-    if (tweet == null || !tweet.isLiked) {
-      ref.read(feedNotifierProvider.notifier).toggleLike(tweetId);
+    // Only like if NOT already liked (but always show hearts — TikTok style).
+    // The tweet is passed along because hashtag and profile feeds show
+    // tweets that are not in the main feed's list.
+    final live = readLiveTweet(ref, widget.tweet);
+    if (!live.isLiked) {
+      ref
+          .read(feedNotifierProvider.notifier)
+          .toggleLike(widget.tweet.id, tweet: widget.tweet);
     }
 
     setState(() {
@@ -284,11 +304,12 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
     if (!widget.tweet.isVideo) {
       return Stack(
         children: [
-          GestureDetector(
-            onDoubleTapDown: (details) {
-              _handleDoubleTapAt(details.localPosition);
-            },
+          Listener(
             behavior: HitTestBehavior.opaque,
+            onPointerDown: _handlePointerDown,
+            onPointerMove: _handlePointerMove,
+            onPointerUp: _handlePointerUp,
+            onPointerCancel: _handlePointerCancel,
             child: _buildImageGallery(),
           ),
           if (_showLikeHeart && _likePosition != null)
@@ -506,18 +527,14 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
                                           ref
                                               .read(
                                                   feedNotifierProvider.notifier)
-                                              .toggleLike(widget.tweet.id);
+                                              .toggleLike(widget.tweet.id,
+                                                  tweet: widget.tweet);
                                         },
                                         icon: Consumer(
                                           builder: (context, ref, child) {
-                                            final isLiked = ref.watch(
-                                                feedNotifierProvider.select(
-                                                    (s) => s.value?.tweets
-                                                        .firstWhere((t) =>
-                                                            t.id ==
-                                                            widget.tweet.id)
-                                                        .isLiked ??
-                                                    false));
+                                            final isLiked = watchLiveTweet(
+                                                    ref, widget.tweet)
+                                                .isLiked;
                                             return Icon(
                                               isLiked
                                                   ? Icons.favorite
@@ -598,7 +615,9 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer>
                 child: Listener(
                   behavior: HitTestBehavior.translucent,
                   onPointerDown: _handlePointerDown,
+                  onPointerMove: _handlePointerMove,
                   onPointerUp: _handlePointerUp,
+                  onPointerCancel: _handlePointerCancel,
                   child: const SizedBox.expand(),
                 ),
               ),

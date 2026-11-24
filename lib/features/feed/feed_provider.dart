@@ -39,6 +39,47 @@ class FeedState {
   }
 }
 
+/// Like/retweet state for tweets shown outside the main feed (hashtag and
+/// profile feeds). Those tweets are not in [FeedState.tweets], so their
+/// optimistic updates are kept here, keyed by tweet id.
+class TweetOverridesNotifier extends Notifier<Map<String, Tweet>> {
+  @override
+  Map<String, Tweet> build() => {};
+
+  void put(Tweet tweet) => state = {...state, tweet.id: tweet};
+}
+
+final tweetOverridesProvider =
+    NotifierProvider<TweetOverridesNotifier, Map<String, Tweet>>(
+        TweetOverridesNotifier.new);
+
+/// Watches the freshest copy of [tweet]: the one in the main feed if it is
+/// there, otherwise the locally updated copy, otherwise [tweet] itself.
+Tweet watchLiveTweet(WidgetRef ref, Tweet tweet) {
+  final inFeed = ref.watch(feedNotifierProvider.select((s) {
+    final tweets = s.value?.tweets;
+    if (tweets == null) return null;
+    for (final t in tweets) {
+      if (t.id == tweet.id) return t;
+    }
+    return null;
+  }));
+  if (inFeed != null) return inFeed;
+  final override = ref.watch(tweetOverridesProvider.select((m) => m[tweet.id]));
+  return override ?? tweet;
+}
+
+/// Same lookup as [watchLiveTweet] without subscribing, for event handlers.
+Tweet readLiveTweet(WidgetRef ref, Tweet tweet) {
+  final tweets = ref.read(feedNotifierProvider).value?.tweets;
+  if (tweets != null) {
+    for (final t in tweets) {
+      if (t.id == tweet.id) return t;
+    }
+  }
+  return ref.read(tweetOverridesProvider)[tweet.id] ?? tweet;
+}
+
 class FeedNotifier extends AsyncNotifier<FeedState> {
   List<Tweet> _runDiscoveryPipeline(
     List<Tweet> freshPool,
@@ -430,95 +471,94 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
     }
   }
 
-  Future<void> toggleLike(String tweetId) async {
-    final currentState = state.value;
-    if (currentState == null) return;
-
-    final tweetIndex = currentState.tweets.indexWhere((t) => t.id == tweetId);
-    if (tweetIndex == -1) return;
-
-    final tweet = currentState.tweets[tweetIndex];
-    final newIsLiked = !tweet.isLiked;
-    final newFavoriteCount = tweet.favoriteCount + (newIsLiked ? 1 : -1);
-
-    // Optimistic UI Update
-    final updatedTweet = tweet.copyWith(
-      isLiked: newIsLiked,
-      favoriteCount: newFavoriteCount >= 0 ? newFavoriteCount : 0,
+  /// Toggles the like on [tweetId]. Pass [tweet] when the tweet may live
+  /// outside the main feed (hashtag or profile feed); without it such a
+  /// tweet cannot be found and nothing happens.
+  Future<void> toggleLike(String tweetId, {Tweet? tweet}) {
+    return _toggleInteraction(
+      tweetId,
+      fallback: tweet,
+      label: 'like',
+      apply: (t) {
+        final liked = !t.isLiked;
+        final count = t.favoriteCount + (liked ? 1 : -1);
+        return t.copyWith(
+            isLiked: liked, favoriteCount: count >= 0 ? count : 0);
+      },
+      send: (client, updated) => updated.isLiked
+          ? client.favoriteTweet(tweetId)
+          : client.unfavoriteTweet(tweetId),
     );
-
-    final updatedTweets = List<Tweet>.from(currentState.tweets);
-    updatedTweets[tweetIndex] = updatedTweet;
-    state = AsyncData(currentState.copyWith(tweets: updatedTweets));
-
-    // API Call
-    final client = ref.read(twitterClientProvider);
-    final success = newIsLiked
-        ? await client.favoriteTweet(tweetId)
-        : await client.unfavoriteTweet(tweetId);
-
-    if (!success) {
-      // Revert on failure
-      final currentAsync = ref.read(feedNotifierProvider);
-      if (currentAsync.hasValue) {
-        final latestState = currentAsync.value!;
-        final idx = latestState.tweets.indexWhere((t) => t.id == tweetId);
-        if (idx != -1) {
-          final revertedTweets = List<Tweet>.from(latestState.tweets);
-          revertedTweets[idx] = tweet; // original tweet
-          state = AsyncData(latestState.copyWith(tweets: revertedTweets));
-        }
-      }
-      AppLogger.log('XFLOW: Failed to toggle like for $tweetId, reverted.');
-    } else {
-      AppLogger.log(
-          'XFLOW: Successfully toggled like for $tweetId to $newIsLiked');
-    }
   }
 
-  Future<void> toggleRetweet(String tweetId) async {
-    final currentState = state.value;
-    if (currentState == null) return;
-
-    final tweetIndex = currentState.tweets.indexWhere((t) => t.id == tweetId);
-    if (tweetIndex == -1) return;
-
-    final tweet = currentState.tweets[tweetIndex];
-    final newIsRetweeted = !tweet.isRetweeted;
-    final newRetweetCount = tweet.retweetCount + (newIsRetweeted ? 1 : -1);
-
-    // Optimistic UI Update
-    final updatedTweet = tweet.copyWith(
-      isRetweeted: newIsRetweeted,
-      retweetCount: newRetweetCount >= 0 ? newRetweetCount : 0,
+  Future<void> toggleRetweet(String tweetId, {Tweet? tweet}) {
+    return _toggleInteraction(
+      tweetId,
+      fallback: tweet,
+      label: 'retweet',
+      apply: (t) {
+        final retweeted = !t.isRetweeted;
+        final count = t.retweetCount + (retweeted ? 1 : -1);
+        return t.copyWith(
+            isRetweeted: retweeted, retweetCount: count >= 0 ? count : 0);
+      },
+      send: (client, updated) => updated.isRetweeted
+          ? client.retweetTweet(tweetId)
+          : client.unretweetTweet(tweetId),
     );
+  }
 
-    final updatedTweets = List<Tweet>.from(currentState.tweets);
-    updatedTweets[tweetIndex] = updatedTweet;
-    state = AsyncData(currentState.copyWith(tweets: updatedTweets));
+  Future<void> _toggleInteraction(
+    String tweetId, {
+    required Tweet? fallback,
+    required String label,
+    required Tweet Function(Tweet) apply,
+    required Future<bool> Function(TwitterClient, Tweet) send,
+  }) async {
+    final currentState = state.value;
+    final tweetIndex =
+        currentState?.tweets.indexWhere((t) => t.id == tweetId) ?? -1;
+    final inFeed = currentState != null && tweetIndex != -1;
 
-    // API Call
+    final Tweet original;
+    if (inFeed) {
+      original = currentState.tweets[tweetIndex];
+    } else {
+      final known = ref.read(tweetOverridesProvider)[tweetId] ?? fallback;
+      if (known == null) return;
+      original = known;
+    }
+    final updated = apply(original);
+
+    // Optimistic UI update
+    void write(Tweet value) {
+      final latest = state.value;
+      final idx = latest?.tweets.indexWhere((t) => t.id == tweetId) ?? -1;
+      if (latest != null && idx != -1) {
+        final tweets = List<Tweet>.from(latest.tweets);
+        tweets[idx] = value;
+        state = AsyncData(latest.copyWith(tweets: tweets));
+      } else if (!inFeed) {
+        ref.read(tweetOverridesProvider.notifier).put(value);
+      }
+    }
+
+    write(updated);
+
     final client = ref.read(twitterClientProvider);
-    final success = newIsRetweeted
-        ? await client.retweetTweet(tweetId)
-        : await client.unretweetTweet(tweetId);
+    bool success;
+    try {
+      success = await send(client, updated);
+    } catch (e) {
+      AppLogger.log('XFLOW: toggle $label for $tweetId threw: $e');
+      success = false;
+    }
 
     if (!success) {
-      // Revert on failure
-      final currentAsync = ref.read(feedNotifierProvider);
-      if (currentAsync.hasValue) {
-        final latestState = currentAsync.value!;
-        final idx = latestState.tweets.indexWhere((t) => t.id == tweetId);
-        if (idx != -1) {
-          final revertedTweets = List<Tweet>.from(latestState.tweets);
-          revertedTweets[idx] = tweet;
-          state = AsyncData(latestState.copyWith(tweets: revertedTweets));
-        }
-      }
-      AppLogger.log('XFLOW: Failed to toggle retweet for $tweetId, reverted.');
+      write(original); // Revert on failure
+      AppLogger.log('XFLOW: Failed to toggle $label for $tweetId, reverted.');
     } else {
-      AppLogger.log(
-          'XFLOW: Successfully toggled retweet for $tweetId to $newIsRetweeted');
+      AppLogger.log('XFLOW: Successfully toggled $label for $tweetId');
     }
   }
 

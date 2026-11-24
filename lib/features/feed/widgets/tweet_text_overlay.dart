@@ -83,13 +83,7 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
 
   Widget _buildActionButtons() {
     // Watch live tweet state so buttons update immediately after toggle
-    final liveTweet = ref.watch(feedNotifierProvider.select(
-      (s) => s.value?.tweets.firstWhere(
-            (t) => t.id == widget.tweet.id,
-            orElse: () => widget.tweet,
-          ),
-    ));
-    final tweet = liveTweet ?? widget.tweet;
+    final tweet = watchLiveTweet(ref, widget.tweet);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -99,7 +93,9 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
           color: tweet.isLiked ? Colors.red : Colors.white,
           label: _formatCount(tweet.favoriteCount),
           onTap: () {
-            ref.read(feedNotifierProvider.notifier).toggleLike(tweet.id);
+            ref
+                .read(feedNotifierProvider.notifier)
+                .toggleLike(tweet.id, tweet: widget.tweet);
           },
         ),
         const SizedBox(height: 16),
@@ -116,7 +112,9 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
           color: tweet.isRetweeted ? Colors.greenAccent : Colors.white,
           label: _formatCount(tweet.retweetCount),
           onTap: () {
-            ref.read(feedNotifierProvider.notifier).toggleRetweet(tweet.id);
+            ref
+                .read(feedNotifierProvider.notifier)
+                .toggleRetweet(tweet.id, tweet: widget.tweet);
           },
         ),
         const SizedBox(height: 16),
