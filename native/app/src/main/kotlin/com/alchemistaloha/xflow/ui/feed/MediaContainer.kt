@@ -1,5 +1,6 @@
 package com.alchemistaloha.xflow.ui.feed
 
+import android.os.SystemClock
 import android.view.HapticFeedbackConstants
 import android.view.TextureView
 import androidx.activity.compose.BackHandler
@@ -46,9 +47,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -67,6 +68,7 @@ import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -89,7 +91,7 @@ import com.alchemistaloha.xflow.core.model.Tweet
 import com.alchemistaloha.xflow.core.model.VideoEndAction
 import com.alchemistaloha.xflow.core.player.BottomEdgeLayout
 import com.alchemistaloha.xflow.core.player.ScrubMath
-import com.alchemistaloha.xflow.core.player.TapKind
+import com.alchemistaloha.xflow.core.player.TapEvent
 import com.alchemistaloha.xflow.core.player.TapSequenceDetector
 import com.alchemistaloha.xflow.core.player.formatSeekTime
 import com.alchemistaloha.xflow.core.util.AppLogger
@@ -101,12 +103,24 @@ import com.alchemistaloha.xflow.player.SubtitleStore
 import com.alchemistaloha.xflow.ui.theme.AppColors
 import com.alchemistaloha.xflow.ui.theme.AppDurations
 import com.alchemistaloha.xflow.ui.theme.PressableScale
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
 private val HeartSize = 96.dp
+
+/** Hearts on screen at once; a faster tapper replaces the oldest. */
+private const val MaxHearts = 12
+
+/** A like request is not repeated within this time, whatever the taps do. */
+private const val LikeRepeatGuardMs = 2_000L
+
+/** One heart of a double (triple, ...) tap, at the place of its own tap. */
+private class HeartBurst(val position: Offset, val angle: Float) {
+    val progress = Animatable(0f)
+}
 
 /** Above a caption of three lines with its name, date and "Translate" line. */
 private val SubtitleBottomInFeed = 184.dp
@@ -164,8 +178,8 @@ fun TiktokMediaContainer(
     val scope = rememberCoroutineScope()
 
     val taps = remember { TapSequenceDetector() }
-    // Play state before the first tap of a sequence, restored on double tap.
-    val playingBeforeTap = remember { arrayOfNulls<Boolean>(1) }
+    // Waits out the double-tap window for a first tap.
+    val singleTapJob = remember { arrayOfNulls<Job>(1) }
     var isPlaying by remember { mutableStateOf(false) }
     // True only when the user paused by tapping; drives the centre play icon, so it does not
     // flash while loading or while a swipe pauses the video.
@@ -177,10 +191,11 @@ fun TiktokMediaContainer(
     var controlsVisible by remember { mutableStateOf(true) }
     var autoFullscreenDone by remember { mutableStateOf(false) }
 
-    // Double-tap heart
-    val heartProgress = remember { Animatable(1f) }
-    var heartPosition by remember { mutableStateOf(Offset.Zero) }
-    var heartAngle by remember { mutableFloatStateOf(0f) }
+    // Double-tap hearts: one per tap, several at a time.
+    val hearts = remember { mutableStateListOf<HeartBurst>() }
+    val likeSentAt = remember(tweet.id) { longArrayOf(0L) }
+    // Height of the video page, to place a tap that landed on the seek bar's strip.
+    var pageHeightPx by remember { mutableIntStateOf(0) }
 
     val visibleNow by rememberUpdatedState(isVisible)
     val tweetNow by rememberUpdatedState(tweet)
@@ -191,11 +206,10 @@ fun TiktokMediaContainer(
 
     fun currentPlayer(): ExoPlayer? = if (tweetNow.isVideo) PlayerPool[tweetNow.id] else null
 
-    /** Instant play/pause on the first tap, no waiting for a second tap. */
+    /** Play/pause. Runs for a tap that stood alone, never for a tap of a double tap. */
     fun togglePlayPause() {
         val p = currentPlayer() ?: return
         val wasPlaying = p.playWhenReady && p.playbackState != Player.STATE_ENDED
-        playingBeforeTap[0] = wasPlaying
         if (wasPlaying) p.pause() else {
             if (p.playbackState == Player.STATE_ENDED) p.seekTo(0)
             p.play()
@@ -203,28 +217,76 @@ fun TiktokMediaContainer(
         userPaused = wasPlaying
     }
 
-    /** The first tap of a double tap already toggled playback; put it back so liking never pauses. */
-    fun undoPlayPauseToggle() {
-        val before = playingBeforeTap[0]
-        playingBeforeTap[0] = null
-        val p = currentPlayer() ?: return
-        if (before == null) return
-        if (before) p.play() else p.pause()
-        userPaused = !before
+    /** A heart where the finger tapped. Playback is not touched. */
+    fun heartAt(position: Offset, like: Boolean) {
+        // Only the tap that makes the double tap likes, and only a post that is not liked yet
+        // (hearts always show, TikTok style). The like is applied in the background, so the
+        // "liked" flag can lag behind fast taps; the time guard keeps a second request from
+        // turning into an unlike. The tweet is passed along because hashtag and profile feeds
+        // show tweets that are not in the main feed's list.
+        val now = SystemClock.uptimeMillis()
+        if (like && !liveTweetNow(tweetNow).isLiked && now - likeSentAt[0] > LikeRepeatGuardMs) {
+            likeSentAt[0] = now
+            toggleLike(tweetNow)
+        }
+        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        val heart = HeartBurst(position, (Random.nextFloat() - 0.5f) * 0.5f)
+        if (hearts.size >= MaxHearts) hearts.removeAt(0)
+        hearts += heart
+        scope.launch {
+            try {
+                heart.progress.animateTo(1f, tween(700, easing = LinearEasing))
+            } finally {
+                hearts.remove(heart)
+            }
+        }
     }
 
-    fun doubleTapAt(position: Offset) {
-        // Only like if NOT already liked (but always show hearts, TikTok style). The tweet is
-        // passed along because hashtag and profile feeds show tweets that are not in the main
-        // feed's list.
-        if (!liveTweetNow(tweetNow).isLiked) toggleLike(tweetNow)
-        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-        heartPosition = position
-        heartAngle = (Random.nextFloat() - 0.5f) * 0.5f
-        scope.launch {
-            heartProgress.snapTo(0f)
-            heartProgress.animateTo(1f, tween(700, easing = LinearEasing))
+    fun dispatchTaps(events: List<TapEvent>) {
+        // A touch on a page that is still sliding in (or already leaving) is not for this item.
+        if (!visibleNow) return
+        for (event in events) {
+            when (event) {
+                is TapEvent.Single ->
+                    if (Fullscreen.tweetId == tweetNow.id) controlsVisible = !controlsVisible
+                    else togglePlayPause()
+                is TapEvent.Heart -> heartAt(Offset(event.x * density, event.y * density), like = event.isFirst)
+            }
         }
+    }
+
+    /**
+     * A first tap acts only once the double-tap window has passed without a second touch.
+     * Until then nothing happens, so a double tap never pauses the video.
+     */
+    fun awaitSingleTap() {
+        singleTapJob[0]?.cancel()
+        singleTapJob[0] = null
+        if (taps.singleTapDeadlineMs == null) return
+        singleTapJob[0] = scope.launch {
+            while (true) {
+                val deadline = taps.singleTapDeadlineMs ?: break
+                val wait = deadline - SystemClock.uptimeMillis()
+                if (wait > 0) delay(wait)
+                val events = taps.poll(SystemClock.uptimeMillis())
+                if (events.isNotEmpty()) {
+                    dispatchTaps(events)
+                    break
+                }
+                // The finger is down again: its release decides. Look again shortly in case it
+                // is simply held.
+                delay(32)
+            }
+        }
+    }
+
+    /** A complete tap reported by another touch area (the top rows of the seek bar's strip). */
+    fun tapFromOutside(position: Offset, downTimeMs: Long) {
+        val x = position.x / density
+        val y = position.y / density
+        taps.pointerDown(OutsidePointerId, x, y, downTimeMs)
+        dispatchTaps(taps.pointerUp(OutsidePointerId, x, y, SystemClock.uptimeMillis()))
+        awaitSingleTap()
     }
 
     val tapModifier = Modifier.pointerInput(Unit) {
@@ -240,23 +302,8 @@ fun TiktokMediaContainer(
                     when {
                         change.changedToDown() -> taps.pointerDown(id, x, y, change.uptimeMillis)
                         change.changedToUp() -> {
-                            val tap = taps.pointerUp(id, x, y, change.uptimeMillis)
-                            // A touch on a page that is still sliding in is not for this item.
-                            if (visibleNow) {
-                                when (tap.kind) {
-                                    TapKind.NONE -> Unit
-                                    TapKind.SINGLE ->
-                                        if (Fullscreen.tweetId == tweetNow.id) controlsVisible = !controlsVisible
-                                        else togglePlayPause()
-                                    TapKind.MULTI -> {
-                                        if (tap.isFirstMulti) {
-                                            if (Fullscreen.tweetId == tweetNow.id) controlsVisible = !controlsVisible
-                                            else undoPlayPauseToggle()
-                                        }
-                                        doubleTapAt(change.position)
-                                    }
-                                }
-                            }
+                            dispatchTaps(taps.pointerUp(id, x, y, change.uptimeMillis))
+                            awaitSingleTap()
                         }
                         change.pressed && change.positionChanged() -> taps.pointerMove(id, x, y)
                     }
@@ -270,7 +317,8 @@ fun TiktokMediaContainer(
             autoFullscreenDone = false
         } else {
             taps.reset()
-            playingBeforeTap[0] = null
+            singleTapJob[0]?.cancel()
+            singleTapJob[0] = null
             userPaused = false
         }
     }
@@ -282,7 +330,11 @@ fun TiktokMediaContainer(
 
     if (tweet.mediaUrls.isEmpty()) {
         Box(modifier.then(body)) {
-            TextTweetCard(tweet)
+            // Double tap likes a text post too; a single tap has nothing to do here.
+            Box(Modifier.fillMaxSize().then(tapModifier)) {
+                TextTweetCard(tweet)
+            }
+            LikeHearts(hearts)
             overlay?.invoke(null, false)
         }
         return
@@ -302,7 +354,7 @@ fun TiktokMediaContainer(
                         }
                     }
                 }
-                LikeHeart(heartProgress.value, heartPosition, heartAngle)
+                LikeHearts(hearts)
                 overlay?.invoke(null, false)
             }
             // Position bar on the tab bar's edge, where the video seek bar is: drag it to slide
@@ -475,7 +527,7 @@ fun TiktokMediaContainer(
         return
     }
 
-    Box(modifier.fillMaxSize()) {
+    Box(modifier.fillMaxSize().onSizeChanged { pageHeightPx = it.height }) {
       Box(body) {
         // Thumbnail placeholder, shows while the video is loading
         Thumbnail(tweet.thumbnailUrl)
@@ -524,8 +576,8 @@ fun TiktokMediaContainer(
             }
         }
 
-        // Double-tap heart
-        LikeHeart(heartProgress.value, heartPosition, heartAngle)
+        // Double-tap hearts
+        LikeHearts(hearts)
 
         // Subtitles: above the caption in the feed, above the controls in full screen. Clear of
         // the action column on the right. Takes no touches.
@@ -568,7 +620,11 @@ fun TiktokMediaContainer(
             TiktokSeekBar(
                 player,
                 active = isVisible,
-                onTapAbove = { if (visibleNow) togglePlayPause() },
+                // The strip lies along the bottom of this page; same tap rules as the video.
+                onTapAbove = { inStrip, downTimeMs ->
+                    val stripTop = pageHeightPx - BottomEdgeLayout.TOUCH_HEIGHT * density
+                    tapFromOutside(Offset(inStrip.x, stripTop + inStrip.y), downTimeMs)
+                },
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
@@ -628,24 +684,43 @@ private fun VideoSurface(player: ExoPlayer, videoSize: VideoSize) {
     }
 }
 
-/** The heart that pops where the user double-tapped. */
+/** Pointer id for taps handed over by another touch area; real pointer ids are not negative. */
+private const val OutsidePointerId = -1L
+
+/** The hearts of a double tap and of the taps that follow it. Takes no touches. */
 @Composable
-private fun LikeHeart(progress: Float, position: Offset, angle: Float) {
-    if (progress >= 1f) return
+private fun LikeHearts(hearts: List<HeartBurst>) {
+    for (heart in hearts) {
+        key(heart) { LikeHeart(heart) }
+    }
+}
+
+/**
+ * A heart that pops where the user tapped. Its progress is read only while placing and
+ * drawing, so the animation recomposes nothing.
+ */
+@Composable
+private fun LikeHeart(heart: HeartBurst) {
     val density = LocalDensity.current
     val half = with(density) { (HeartSize / 2).toPx() }
-    val rise = with(density) { heartRise(progress).dp.toPx() }
     Icon(
         Icons.Rounded.Favorite,
         contentDescription = null,
         tint = AppColors.like,
         modifier = Modifier
-            .offset { IntOffset((position.x - half).roundToInt(), (position.y - half + rise).roundToInt()) }
+            .offset {
+                val rise = heartRise(heart.progress.value).dp.toPx()
+                IntOffset(
+                    (heart.position.x - half).roundToInt(),
+                    (heart.position.y - half + rise).roundToInt(),
+                )
+            }
             .size(HeartSize)
             .graphicsLayer {
-                alpha = heartOpacity(progress)
-                rotationZ = Math.toDegrees(angle.toDouble()).toFloat()
-                val s = heartScale(progress)
+                val t = heart.progress.value
+                alpha = heartOpacity(t)
+                rotationZ = Math.toDegrees(heart.angle.toDouble()).toFloat()
+                val s = heartScale(t)
                 scaleX = s
                 scaleY = s
             },
