@@ -3,6 +3,7 @@ package com.alchemistaloha.xflow.ui.theme
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -37,12 +38,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -288,3 +293,53 @@ fun VSpace(height: Dp) = Spacer(Modifier.height(height))
 
 @Composable
 fun HSpace(width: Dp) = Spacer(Modifier.width(width))
+
+/**
+ * The app icon (assets/app_icon.svg) drawn as vectors: a black rounded square
+ * with five blue tiles on its diagonals. Colours are the icon's own, so it is
+ * not tinted. Flutter shows it 22x22 in the feed's top bar.
+ */
+@Composable
+fun AppLogoMark(modifier: Modifier = Modifier, size: Dp = 22.dp) {
+    Canvas(modifier.size(size).clearAndSetSemantics { }) {
+        // The SVG is drawn on a 512 x 512 board.
+        val unit = this.size.minDimension / 512f
+        fun tile(x: Float, y: Float, side: Float, radius: Float, color: Color, alpha: Float = 1f) {
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(x * unit, y * unit),
+                size = Size(side * unit, side * unit),
+                cornerRadius = CornerRadius(radius * unit),
+                alpha = alpha,
+            )
+        }
+        tile(0f, 0f, 512f, 128f, Color(0xFF000000))
+        tile(140f, 140f, 60f, 10f, Color(0xFF2196F3))
+        tile(210f, 210f, 92f, 15f, Color(0xFF64B5F6))
+        tile(312f, 312f, 60f, 10f, Color(0xFF2196F3))
+        tile(312f, 140f, 60f, 10f, Color(0xFFBBDEFB), alpha = 0.6f)
+        tile(140f, 312f, 60f, 10f, Color(0xFFBBDEFB), alpha = 0.6f)
+    }
+}
+
+/**
+ * Icon + "XFlow", as the Flutter feed shows it at the left of its top bar:
+ * 22dp icon, 8dp gap, 18sp extra-bold white text with a soft shadow.
+ */
+@Composable
+fun AppLogoWordmark(modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        AppLogoMark(size = 22.dp)
+        Spacer(Modifier.width(8.dp))
+        Text(
+            "XFlow",
+            style = TextStyle(
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = (-0.4).sp,
+                shadow = Shadow(color = Color(0x8A000000), blurRadius = 6f),
+            ),
+        )
+    }
+}

@@ -78,6 +78,7 @@ object SubscriptionListStore {
                     Repository.deleteSubscriptionByScreenName(sub.screenName)
                 } else {
                     Repository.insertSubscription(sub)
+                    com.alchemistaloha.xflow.data.feed.FeedStore.onSubscriptionsChanged()
                 }
             } catch (e: CancellationException) {
                 throw e

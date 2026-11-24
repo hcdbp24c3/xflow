@@ -255,6 +255,7 @@ fun StorageSettingsPage(
             min = 100.0,
             max = 2000.0,
             divisions = 19,
+            label = SettingsFormat.cacheLimitLabel(settings.mediaCacheSizeMB),
             onChanged = {
                 val megabytes = Math.round(it).toInt()
                 notifier.updateMediaCacheSize(megabytes)

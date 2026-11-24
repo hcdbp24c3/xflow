@@ -29,4 +29,6 @@ data class TweetResponse(
     val tweets: List<Tweet>,
     val cursorTop: String? = null,
     val cursorBottom: String? = null,
+    /** How the request that produced this went; null for responses built by the parser alone. */
+    val outcome: com.alchemistaloha.xflow.core.client.FetchOutcome? = null,
 )

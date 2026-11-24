@@ -1,0 +1,216 @@
+{
+ "data": {
+  "tweetResult": {
+   "result": {
+    "__typename": "Tweet",
+    "rest_id": "1960000000000000001",
+    "core": {
+     "user_results": {
+      "result": {
+       "__typename": "User",
+       "id": "VXNlcjo1001",
+       "rest_id": "1001",
+       "affiliates_highlighted_label": {},
+       "has_graduated_access": true,
+       "is_blue_verified": false,
+       "profile_image_shape": "Circle",
+       "legacy": {
+        "can_dm": false,
+        "created_at": "Tue Mar 21 20:50:14 +0000 2006",
+        "default_profile": false,
+        "description": "bio of Alice Nguyễn",
+        "entities": {
+         "description": {
+          "urls": []
+         }
+        },
+        "favourites_count": 1234,
+        "followers_count": 5678,
+        "friends_count": 321,
+        "listed_count": 12,
+        "location": "Hà Nội",
+        "media_count": 987,
+        "name": "Alice Nguyễn",
+        "normal_followers_count": 5678,
+        "profile_banner_url": "https://pbs.twimg.com/profile_banners/1001/1700000000",
+        "profile_image_url_https": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+        "screen_name": "alice_media",
+        "statuses_count": 4321,
+        "verified": false
+       }
+      }
+     }
+    },
+    "unmention_data": {},
+    "edit_control": {
+     "edit_tweet_ids": [
+      "1960000000000000001"
+     ],
+     "editable_until_msecs": "1539206364000",
+     "is_edit_eligible": false,
+     "edits_remaining": "5"
+    },
+    "is_translatable": true,
+    "views": {
+     "count": "1200",
+     "state": "EnabledWithCount"
+    },
+    "source": "<a href=\"https://mobile.twitter.com\" rel=\"nofollow\">Twitter Web App</a>",
+    "legacy": {
+     "bookmark_count": 3,
+     "bookmarked": false,
+     "created_at": "Wed Oct 10 20:19:24 +0000 2018",
+     "conversation_id_str": "1960000000000000001",
+     "display_text_range": [
+      0,
+      10
+     ],
+     "entities": {
+      "hashtags": [],
+      "symbols": [],
+      "timestamps": [],
+      "urls": [],
+      "user_mentions": [],
+      "media": [
+       {
+        "display_url": "pic.x.com/vid1101",
+        "expanded_url": "https://x.com/u/status/1/video/1",
+        "id_str": "1101",
+        "indices": [
+         0,
+         23
+        ],
+        "media_key": "7_1101",
+        "media_url_https": "https://pbs.twimg.com/ext_tw_video_thumb/1101/pu/img/thumb.jpg",
+        "type": "video",
+        "url": "https://t.co/v1101",
+        "additional_media_info": {
+         "monetizable": false
+        },
+        "ext_media_availability": {
+         "status": "Available"
+        },
+        "sizes": {
+         "large": {
+          "h": 720,
+          "w": 1280,
+          "resize": "fit"
+         }
+        },
+        "original_info": {
+         "height": 720,
+         "width": 1280,
+         "focus_rects": []
+        },
+        "video_info": {
+         "aspect_ratio": [
+          16,
+          9
+         ],
+         "duration_millis": 31234,
+         "variants": [
+          {
+           "content_type": "application/x-mpegURL",
+           "url": "https://video.twimg.com/ext_tw_video/1101/pu/pl/master.m3u8?tag=12"
+          },
+          {
+           "bitrate": 256000,
+           "content_type": "video/mp4",
+           "url": "https://video.twimg.com/ext_tw_video/1101/pu/vid/avc1/480x270/low.mp4?tag=12"
+          },
+          {
+           "bitrate": 2176000,
+           "content_type": "video/mp4",
+           "url": "https://video.twimg.com/ext_tw_video/1101/pu/vid/avc1/1280x720/high.mp4?tag=12"
+          },
+          {
+           "bitrate": 832000,
+           "content_type": "video/mp4",
+           "url": "https://video.twimg.com/ext_tw_video/1101/pu/vid/avc1/640x360/mid.mp4?tag=12"
+          }
+         ]
+        }
+       }
+      ]
+     },
+     "favorite_count": 42,
+     "favorited": false,
+     "full_text": "focal post",
+     "is_quote_status": false,
+     "lang": "vi",
+     "possibly_sensitive": false,
+     "possibly_sensitive_editable": true,
+     "quote_count": 1,
+     "reply_count": 5,
+     "retweet_count": 7,
+     "retweeted": false,
+     "user_id_str": "1001",
+     "id_str": "1960000000000000001",
+     "extended_entities": {
+      "media": [
+       {
+        "display_url": "pic.x.com/vid1101",
+        "expanded_url": "https://x.com/u/status/1/video/1",
+        "id_str": "1101",
+        "indices": [
+         0,
+         23
+        ],
+        "media_key": "7_1101",
+        "media_url_https": "https://pbs.twimg.com/ext_tw_video_thumb/1101/pu/img/thumb.jpg",
+        "type": "video",
+        "url": "https://t.co/v1101",
+        "additional_media_info": {
+         "monetizable": false
+        },
+        "ext_media_availability": {
+         "status": "Available"
+        },
+        "sizes": {
+         "large": {
+          "h": 720,
+          "w": 1280,
+          "resize": "fit"
+         }
+        },
+        "original_info": {
+         "height": 720,
+         "width": 1280,
+         "focus_rects": []
+        },
+        "video_info": {
+         "aspect_ratio": [
+          16,
+          9
+         ],
+         "duration_millis": 31234,
+         "variants": [
+          {
+           "content_type": "application/x-mpegURL",
+           "url": "https://video.twimg.com/ext_tw_video/1101/pu/pl/master.m3u8?tag=12"
+          },
+          {
+           "bitrate": 256000,
+           "content_type": "video/mp4",
+           "url": "https://video.twimg.com/ext_tw_video/1101/pu/vid/avc1/480x270/low.mp4?tag=12"
+          },
+          {
+           "bitrate": 2176000,
+           "content_type": "video/mp4",
+           "url": "https://video.twimg.com/ext_tw_video/1101/pu/vid/avc1/1280x720/high.mp4?tag=12"
+          },
+          {
+           "bitrate": 832000,
+           "content_type": "video/mp4",
+           "url": "https://video.twimg.com/ext_tw_video/1101/pu/vid/avc1/640x360/mid.mp4?tag=12"
+          }
+         ]
+        }
+       }
+      ]
+     }
+    }
+   }
+  }
+ }
+}

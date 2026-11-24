@@ -50,6 +50,24 @@ object TransactionIdService {
     @Volatile
     private var isReady = false
 
+    /** When the page started loading; 0 when no load is pending. Main thread only. */
+    private var loadStartedAt = 0L
+    private var localOkCount = 0
+    private var localFailCount = 0
+
+    /** A request made while the page is still loading waits this long for it, counted from the load start. */
+    private const val PAGE_WAIT_MS = 8000L
+
+    /** Call on the main thread when the hidden page starts (re)loading. */
+    fun markLoading() {
+        loadStartedAt = android.os.SystemClock.elapsedRealtime()
+        AppLogger.log("TXID WebView loading x.com")
+    }
+
+    /** One line for the log viewer: whether ids are being made locally. */
+    fun statusLine(): String =
+        "TXID status: webView=${if (webView != null) "attached" else "none"} ready=$isReady localOk=$localOkCount localFail=$localFailCount"
+
     /** Dart callers wrote `TransactionIdService.instance`. */
     val instance: TransactionIdService get() = this
 
@@ -61,6 +79,7 @@ object TransactionIdService {
 
     fun markReady(ready: Boolean) {
         isReady = ready
+        if (ready) loadStartedAt = 0L
         if (!ready) {
             scriptInstalled = false
         }
@@ -69,18 +88,46 @@ object TransactionIdService {
     /** The id for a request to [path], or null when the page is not ready or the script fails. */
     suspend fun generateForRequest(path: String, method: String = "GET"): String? =
         withContext(Dispatchers.Main.immediate) {
+            // The first requests of a session start before x.com has loaded in the
+            // hidden page. Give the page a moment instead of sending them without an id.
+            if (webView != null && !isReady && loadStartedAt != 0L) {
+                val startedAt = loadStartedAt
+                var waited = 0L
+                while (!isReady && loadStartedAt == startedAt &&
+                    android.os.SystemClock.elapsedRealtime() - startedAt < PAGE_WAIT_MS
+                ) {
+                    delay(100)
+                    waited += 100
+                }
+                AppLogger.log("TXID waited ${waited}ms for the x.com page: ready=$isReady")
+            }
+
             val view = webView
             if (view == null || !isReady) {
+                AppLogger.log(
+                    "TXID local unavailable: " + if (view == null) "no WebView attached" else "x.com page not ready",
+                )
                 return@withContext null
             }
 
             try {
                 ensureScriptInstalled(view)
-                normalizeJavaScriptResult(runGenerator(view, path, method))
+                val id = normalizeJavaScriptResult(runGenerator(view, path, method))
+                if (id == null) {
+                    localFailCount++
+                    AppLogger.log("TXID local generation returned nothing")
+                } else {
+                    localOkCount++
+                    if (localOkCount == 1) AppLogger.log("TXID local generation works (length=${id.length})")
+                }
+                id
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                AppLogger.log("TXID local generation failed: ${e::class.simpleName}: $e")
+                localFailCount++
+                // The script must be installed again if the page was replaced under us.
+                scriptInstalled = false
+                AppLogger.log("TXID local generation failed: ${e::class.simpleName}: ${e.message}")
                 null
             }
         }
@@ -181,7 +228,19 @@ private fun createTransactionIdWebView(context: Context): WebView? =
                     val ready = url != null && url.startsWith("https://x.com/")
                     TransactionIdService.markReady(ready)
                     if (ready) {
-                        AppLogger.log("TXID WebView ready at $url")
+                        AppLogger.log("TXID WebView ready at ${url?.substringBefore('?')}")
+                    } else {
+                        AppLogger.log("TXID WebView finished on an unexpected page: ${url?.substringBefore('?')}")
+                    }
+                }
+
+                override fun onReceivedError(
+                    view: WebView?,
+                    request: android.webkit.WebResourceRequest?,
+                    error: android.webkit.WebResourceError?,
+                ) {
+                    if (request?.isForMainFrame == true) {
+                        AppLogger.log("TXID WebView page error: ${error?.errorCode} ${error?.description}")
                     }
                 }
             }
@@ -221,6 +280,7 @@ fun TransactionIdWebViewHost() {
 
     // Runs after the frame, once per account id, and again after a logout and login.
     LaunchedEffect(current.id) {
+        TransactionIdService.markLoading()
         webView.loadUrl(TRANSACTION_ID_HOME_URL)
     }
 

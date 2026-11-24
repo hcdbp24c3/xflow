@@ -59,6 +59,7 @@ import com.alchemistaloha.xflow.data.client.TwitterClient
 import com.alchemistaloha.xflow.data.feed.twitterClient
 import com.alchemistaloha.xflow.data.settings.SettingsStore
 import com.alchemistaloha.xflow.data.subscriptions.SubscriptionListStore
+import com.alchemistaloha.xflow.data.feed.FeedStore
 import com.alchemistaloha.xflow.data.sync.BackgroundSync
 import com.alchemistaloha.xflow.player.MediaCache
 import com.alchemistaloha.xflow.player.PlayerPool
@@ -132,8 +133,12 @@ private fun XFlowRoot() {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         if (XFlowApp.ready.value) {
             AppLogger.log("XFLOW: App resumed. Ensuring BackgroundSync is active.")
-            TwitterClient.resetQueue()
+            // The Flutter app reset its request queue here because a failed request
+            // never gave its turn back. This client always gives the turn back, and a
+            // reset would fail every request still waiting (a feed refresh queued
+            // behind the sync came back empty), so the queue is left alone.
             BackgroundSync.restart(twitterClient, SettingsStore.state.value)
+            FeedStore.retryIfEmpty()
         }
     }
 

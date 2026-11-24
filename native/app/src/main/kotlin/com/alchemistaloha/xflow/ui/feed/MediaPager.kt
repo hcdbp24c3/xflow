@@ -197,6 +197,9 @@ fun MediaPager(
         state = pagerState,
         modifier = modifier.fillMaxSize(),
         flingBehavior = fling,
+        // Fullscreen is one video, like the separate fullscreen route in Flutter: no
+        // swiping to the neighbours until it is left.
+        userScrollEnabled = !Fullscreen.isActive,
         // The neighbours are laid out ahead of the swipe, so a video surface is never
         // created in the middle of a drag.
         beyondViewportPageCount = 1,

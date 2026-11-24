@@ -1,5 +1,8 @@
 package com.alchemistaloha.xflow.data.client
 
+import com.alchemistaloha.xflow.core.client.FetchDiagnostics
+import com.alchemistaloha.xflow.core.client.FetchIssue
+import com.alchemistaloha.xflow.core.client.FetchOutcome
 import com.alchemistaloha.xflow.core.client.TwitterFeatures
 import com.alchemistaloha.xflow.core.client.TwitterParser
 import com.alchemistaloha.xflow.core.client.XUri
@@ -17,7 +20,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 /** Thrown where Dart's `Future.timeout` threw its TimeoutException. */
 class RequestTimeoutException(val seconds: Int) : Exception() {
@@ -154,6 +159,83 @@ class TwitterClient {
         private fun JsonElement?.asMap(): JsonObject =
             this as? JsonObject ?: throw IllegalStateException("response is not a JSON object")
 
+        /** Logs [outcome] and wraps it in an empty response, so the caller can show why. */
+        private fun failed(outcome: FetchOutcome): TweetResponse {
+            AppLogger.log(outcome.toLogLine())
+            return TweetResponse(tweets = emptyList(), outcome = outcome)
+        }
+
+        /** Marks a parsed response with its outcome and logs how much of the body became posts. */
+        private fun parsed(operation: String, response: TweetResponse, body: String): TweetResponse {
+            val outcome = FetchOutcome(
+                operation,
+                if (response.tweets.isEmpty()) FetchIssue.empty else FetchIssue.ok,
+                httpStatus = 200,
+                items = response.tweets.size,
+                detail = "entries=${countEntries(body)} bytes=${body.length}",
+            )
+            AppLogger.log(outcome.toLogLine())
+            return response.copy(outcome = outcome)
+        }
+
+        /** How many timeline entries the body holds, whatever the parser made of them. */
+        private fun countEntries(body: String): Int {
+            var count = 0
+            var index = body.indexOf("\"entryId\"")
+            while (index >= 0) {
+                count++
+                index = body.indexOf("\"entryId\"", index + 9)
+            }
+            return count
+        }
+
+        /** The first message of a GraphQL `errors` array, if the body has one. */
+        private fun graphqlErrorText(result: JsonElement?): String? {
+            val errors = (result as? JsonObject)?.get("errors") as? JsonArray ?: return null
+            val first = errors.firstOrNull() as? JsonObject ?: return null
+            val message = (first["message"] as? JsonPrimitive)?.content
+            val code = (first["code"] as? JsonPrimitive)?.content
+            return listOfNotNull(message, code?.let { "code=$it" }).joinToString(" ").ifEmpty { null }
+        }
+
+        // ---- SearchTimeline attempts -------------------------------------
+        // X answers 404 when it does not accept the operation id or the
+        // x-client-transaction-id of a search. The Flutter client only
+        // switched the operation id; here the header is varied too, because
+        // the two clients do not send the same header: the Flutter WebView
+        // call returned the text of an unresolved promise ("{}") and that is
+        // what it sent, while this client waits for the real id.
+
+        private class SearchAttempt(val path: String, val mode: TransactionIdMode) {
+            override fun toString(): String = "${path.substringAfter("/graphql/").substringBefore('/')}/${mode.name}"
+        }
+
+        private val searchAttempts = listOf(
+            SearchAttempt(graphqlSearchTimelineUriPath, TransactionIdMode.generated),
+            SearchAttempt(legacyGraphqlSearchTimelineUriPath, TransactionIdMode.generated),
+            SearchAttempt(graphqlSearchTimelineUriPath, TransactionIdMode.placeholder),
+            SearchAttempt(graphqlSearchTimelineUriPath, TransactionIdMode.none),
+        )
+
+        /** The attempt that last got an answer other than 404; tried first from then on. */
+        @Volatile
+        private var workingSearchAttempt: SearchAttempt? = null
+
+        /** When every attempt was last refused; for a minute after that only the first two are tried. */
+        @Volatile
+        private var allSearchAttemptsFailedAt = 0L
+
+        private const val SEARCH_RETRY_ALL_AFTER_MS = 60_000L
+
+        private fun searchAttemptOrder(): List<SearchAttempt> {
+            val preferred = workingSearchAttempt
+            if (preferred != null) return listOf(preferred) + searchAttempts.filter { it !== preferred }
+            if (System.currentTimeMillis() - allSearchAttemptsFailedAt < SEARCH_RETRY_ALL_AFTER_MS) {
+                return searchAttempts.take(2)
+            }
+            return searchAttempts
+        }
+
         private fun JsonElement?.child(key: String): JsonElement? {
             if (this == null || this is JsonNull) return null
             val value = asMap()[key]
@@ -169,15 +251,24 @@ class TwitterClient {
         uri: XUri,
         timeoutSeconds: Int? = null,
         cacheDurationMillis: Long? = null,
+        transactionIdMode: TransactionIdMode = TransactionIdMode.generated,
     ): HttpResult {
         waitForTurn()
         val response = try {
             if (timeoutSeconds != null) {
                 withTimeoutOrNull(timeoutSeconds * 1000L) {
-                    TwitterAccount.fetch(uri, cacheDurationMillis = cacheDurationMillis)
+                    TwitterAccount.fetch(
+                        uri,
+                        cacheDurationMillis = cacheDurationMillis,
+                        transactionIdMode = transactionIdMode,
+                    )
                 } ?: throw RequestTimeoutException(timeoutSeconds)
             } else {
-                TwitterAccount.fetch(uri, cacheDurationMillis = cacheDurationMillis)
+                TwitterAccount.fetch(
+                    uri,
+                    cacheDurationMillis = cacheDurationMillis,
+                    transactionIdMode = transactionIdMode,
+                )
             }
         } catch (e: CancellationException) {
             releaseTurn()
@@ -192,7 +283,7 @@ class TwitterClient {
 
     private fun logTimelineRequest(label: String, uri: XUri, context: Any? = null) {
         val contextText = if (context == null) "" else " context=${TwitterAccount.compactForLog(context)}"
-        AppLogger.log("Timeline request [$label]: ${TwitterAccount.formatUriForLog(uri)}$contextText")
+        AppLogger.log("Timeline request [$label]: ${uri.path}$contextText")
     }
 
     private fun logTimelineResult(label: String, response: TweetResponse, context: Any? = null) {
@@ -311,7 +402,9 @@ class TwitterClient {
                     break
                 }
                 if (response.statusCode != 200) {
-                    AppLogger.log("fetchFollowing Error: ${response.statusCode} ${response.body}")
+                    AppLogger.log(
+                        "fetchFollowing Error: ${response.statusCode} ${FetchDiagnostics.shorten(response.body) ?: ""}",
+                    )
                     break
                 }
 
@@ -353,14 +446,14 @@ class TwitterClient {
         val finalQuery = TwitterParser.buildSearchQuery(query, sort, filters, minFaves)
         val variables = TwitterParser.searchTimelineVariables(finalQuery, count, sort, cursor)
 
+        val operation = "SearchTimeline"
         try {
-            val attemptPaths = listOf(
-                graphqlSearchTimelineUriPath,
-                legacyGraphqlSearchTimelineUriPath,
-            )
+            val attempts = searchAttemptOrder()
+            var refused: FetchOutcome? = null
 
-            for (i in attemptPaths.indices) {
-                val path = attemptPaths[i]
+            for (i in attempts.indices) {
+                val attempt = attempts[i]
+                val path = attempt.path
                 val uri = TwitterParser.buildSearchTimelineUri(path, variables)
                 val context = linkedMapOf(
                     "query" to finalQuery,
@@ -371,30 +464,45 @@ class TwitterClient {
                     "minFaves" to minFaves,
                     "attempt" to i + 1,
                     "operationPath" to path,
+                    "txIdMode" to attempt.mode.name,
                 )
 
                 logTimelineRequest("fetchTrendingMedia", uri, context = context)
 
-                val response = fetchInTurn(uri, timeoutSeconds = timeoutSeconds)
+                val response = fetchInTurn(uri, timeoutSeconds = timeoutSeconds, transactionIdMode = attempt.mode)
 
                 if (response.statusCode == 429) {
                     handleRateLimit(cooldownMinutes)
-                    return TweetResponse(tweets = emptyList())
+                    return failed(FetchDiagnostics.forStatus(operation, 429, response.body))
                 }
-                if (response.statusCode == 404 && i < attemptPaths.size - 1) {
+                if (response.statusCode == 404) {
+                    refused = FetchDiagnostics.forStatus(operation, 404, response.body)
                     AppLogger.log(
-                        "SearchTimeline returned 404 for $path. Retrying with alternate operation id.",
+                        "SearchTimeline returned 404 for attempt ${i + 1}/${attempts.size} ($attempt)." +
+                            if (i < attempts.size - 1) " Retrying with the next operation id / transaction id mode." else "",
                     )
+                    if (attempt === workingSearchAttempt) workingSearchAttempt = null
                     continue
                 }
                 if (response.statusCode != 200) {
-                    AppLogger.log("Error status: ${response.statusCode} body: ${response.body}")
-                    return TweetResponse(tweets = emptyList())
+                    return failed(FetchDiagnostics.forStatus(operation, response.statusCode, response.body))
+                }
+
+                if (workingSearchAttempt !== attempt) {
+                    workingSearchAttempt = attempt
+                    AppLogger.log("SearchTimeline accepted with $attempt; using it first from now on.")
                 }
 
                 val result = decode(response.body)
                 val timeline = result.child("data").child("search_by_raw_query").child("search_timeline")
-                    ?: return TweetResponse(tweets = emptyList())
+                    ?: return failed(
+                        FetchOutcome(
+                            operation, FetchIssue.badResponse, httpStatus = 200,
+                            detail = FetchDiagnostics.shorten(
+                                graphqlErrorText(result) ?: "no search_timeline in the response (bytes=${response.body.length})",
+                            ),
+                        ),
+                    )
 
                 val tweetResponse = TwitterParser.parseTweets(timeline.asMap())
                 logTimelineResult(
@@ -409,15 +517,20 @@ class TwitterClient {
                     ),
                 )
 
-                return tweetResponse
+                return parsed(operation, tweetResponse, response.body)
             }
 
-            return TweetResponse(tweets = emptyList())
+            allSearchAttemptsFailedAt = System.currentTimeMillis()
+            return failed(
+                (refused ?: FetchOutcome(operation, FetchIssue.http, httpStatus = 404)).let {
+                    it.copy(detail = "refused with ${attempts.joinToString(", ")}" + (it.detail?.let { d -> " | $d" } ?: ""))
+                },
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             AppLogger.log("Exception in fetchTrendingMedia: $e")
-            return TweetResponse(tweets = emptyList())
+            return failed(FetchDiagnostics.forException(operation, e))
         }
     }
 
@@ -449,7 +562,13 @@ class TwitterClient {
 
         if (subs.isEmpty()) {
             if (strictSubscriptionsOnly) {
-                return TweetResponse(tweets = emptyList())
+                return failed(
+                    if (TwitterAccount.currentAccount == null) {
+                        FetchOutcome("Subscriptions", FetchIssue.notLoggedIn)
+                    } else {
+                        FetchOutcome("Subscriptions", FetchIssue.noSubscriptions)
+                    },
+                )
             }
             return fetchTrendingMedia(
                 cursor = cursor,
@@ -470,7 +589,14 @@ class TwitterClient {
         } else if (useChunkedSubscriptions) {
             val queries = TwitterParser.buildChunkedQueries(subs, includeNativeRetweets, maxQueryLength)
             if (queries.isEmpty()) {
-                if (strictSubscriptionsOnly) return TweetResponse(tweets = emptyList())
+                if (strictSubscriptionsOnly) {
+                    return failed(
+                        FetchOutcome(
+                            "Subscriptions", FetchIssue.noSubscriptions,
+                            detail = "no usable screen name in ${subs.size} subscriptions",
+                        ),
+                    )
+                }
                 return fetchTrendingMedia(
                     cursor = cursor,
                     sort = sort,
@@ -524,6 +650,7 @@ class TwitterClient {
                 tweets = combined,
                 cursorTop = response.cursorTop,
                 cursorBottom = response.cursorBottom,
+                outcome = if (combined.isEmpty()) trendingResponse.outcome ?: response.outcome else response.outcome,
             )
         }
 
@@ -554,18 +681,23 @@ class TwitterClient {
 
             if (response.statusCode == 429) {
                 handleRateLimit(cooldownMinutes)
-                return TweetResponse(tweets = emptyList())
+                return failed(FetchDiagnostics.forStatus("UserTweets", 429, response.body))
             }
             if (response.statusCode != 200) {
                 AppLogger.log("Error fetching user timeline: Status ${response.statusCode}")
-                return TweetResponse(tweets = emptyList())
+                return failed(FetchDiagnostics.forStatus("UserTweets", response.statusCode, response.body))
             }
 
             val data = decode(response.body)
             val timeline = data.asMap().child("data").child("user").child("result").child("timeline_v2").child("timeline")
             if (timeline == null) {
                 AppLogger.log("User timeline result is null for userId: $userId")
-                return TweetResponse(tweets = emptyList())
+                return failed(
+                    FetchOutcome(
+                        "UserTweets", FetchIssue.badResponse, httpStatus = 200,
+                        detail = FetchDiagnostics.shorten(graphqlErrorText(data) ?: "no timeline in the response"),
+                    ),
+                )
             }
 
             AppLogger.log("Successfully fetched user timeline for userId: $userId")
@@ -579,12 +711,12 @@ class TwitterClient {
                     "count" to count,
                 ),
             )
-            return tweetResponse
+            return parsed("UserTweets", tweetResponse, response.body)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             AppLogger.log("Error fetching user timeline: $e")
-            return TweetResponse(tweets = emptyList())
+            return failed(FetchDiagnostics.forException("UserTweets", e))
         }
     }
 
@@ -618,6 +750,11 @@ class TwitterClient {
             waitForTurn()
             waiting = false
             val response = TwitterAccount.fetch(uri, method = "POST", body = body)
+            if (response.statusCode != 200) {
+                AppLogger.log(
+                    "$errorLog: HTTP ${response.statusCode} ${FetchDiagnostics.shorten(response.body) ?: ""}",
+                )
+            }
 
             return response.statusCode == 200
         } catch (e: CancellationException) {
@@ -653,7 +790,7 @@ class TwitterClient {
     )
 
     suspend fun postTweet(text: String, inReplyToTweetId: String? = null): Boolean = postInTurn(
-        "Posting tweet: $text", "Error posting tweet",
+        "Posting tweet (${text.length} chars)", "Error posting tweet",
         graphqlCreateTweetUriPath, TwitterParser.postTweetBody(text, inReplyToTweetId),
     )
 
@@ -676,7 +813,9 @@ class TwitterClient {
             waiting = false
             val response = TwitterAccount.fetch(uri)
 
-            if (response.statusCode != 200) return TweetResponse(tweets = emptyList())
+            if (response.statusCode != 200) {
+                return failed(FetchDiagnostics.forStatus("TweetDetail", response.statusCode, response.body))
+            }
             val result = decode(response.body)
 
             // Agnostic parser can handle the nested instructions in TweetDetail
@@ -689,13 +828,13 @@ class TwitterClient {
                     "cursor" to cursor,
                 ),
             )
-            return tweetResponse
+            return parsed("TweetDetail", tweetResponse, response.body)
         } catch (e: CancellationException) {
             cancelledWhileWaiting = waiting
             throw e
         } catch (e: Exception) {
             AppLogger.log("Error fetching tweet detail: $e")
-            return TweetResponse(tweets = emptyList())
+            return failed(FetchDiagnostics.forException("TweetDetail", e))
         } finally {
             if (!cancelledWhileWaiting) releaseTurn()
         }
@@ -710,6 +849,7 @@ class TwitterClient {
         count: Int,
         filters: Set<MediaFilter>?,
     ): TweetResponse {
+        val operation = label.removePrefix("fetch")
         try {
             logTimelineRequest(
                 label,
@@ -722,7 +862,9 @@ class TwitterClient {
             )
             val response = fetchInTurn(uri)
 
-            if (response.statusCode != 200) return TweetResponse(tweets = emptyList())
+            if (response.statusCode != 200) {
+                return failed(FetchDiagnostics.forStatus(operation, response.statusCode, response.body))
+            }
             val result = decode(response.body)
             var tweetResponse = TwitterParser.parseAgnosticTimeline(result.asMap())
 
@@ -739,12 +881,12 @@ class TwitterClient {
                     "filters" to filters?.map { it.name },
                 ),
             )
-            return tweetResponse
+            return parsed(operation, tweetResponse, response.body)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             AppLogger.log("$errorLog: $e")
-            return TweetResponse(tweets = emptyList())
+            return failed(FetchDiagnostics.forException(operation, e))
         }
     }
 

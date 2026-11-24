@@ -55,6 +55,10 @@ import com.alchemistaloha.xflow.ui.theme.AppRadius
 import com.alchemistaloha.xflow.ui.theme.AppTopBar
 import com.alchemistaloha.xflow.ui.theme.HSpace
 import com.alchemistaloha.xflow.ui.theme.VSpace
+import com.alchemistaloha.xflow.data.subscriptions.SubscriptionListStore
+import com.alchemistaloha.xflow.data.feed.FeedStore
+import com.alchemistaloha.xflow.data.sync.BackgroundSync
+import com.alchemistaloha.xflow.data.settings.SettingsStore
 import kotlinx.coroutines.launch
 
 /** Where an import stands; mirrors the Dart stream of "users found so far". */
@@ -102,8 +106,15 @@ fun SubscriptionImportScreen() {
                 val following = client.fetchFollowing(user.id)
                 val count = if (following.isNotEmpty()) {
                     Repository.insertSubscriptions(following)
+                    AppLogger.log("IMPORT done: saved ${following.size} subscriptions")
+                    // The Flutter screen left the list and the feed as they were, so an
+                    // empty feed stayed empty until the app was restarted.
+                    SubscriptionListStore.invalidate()
+                    FeedStore.onSubscriptionsChanged()
+                    BackgroundSync.syncNow(client, SettingsStore.state.value)
                     following.size
                 } else {
+                    AppLogger.log("IMPORT done: X returned no accounts for this user")
                     0
                 }
                 status = ImportStatus.Done(count)

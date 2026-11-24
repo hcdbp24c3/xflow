@@ -1,5 +1,7 @@
 package com.alchemistaloha.xflow.ui.settings
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -35,7 +37,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -47,6 +51,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -54,18 +60,22 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.alchemistaloha.xflow.core.settings.SettingsFormat
 import com.alchemistaloha.xflow.core.util.AppLogger
 import com.alchemistaloha.xflow.ui.nav.Navigator
 import com.alchemistaloha.xflow.ui.theme.AppColors
+import com.alchemistaloha.xflow.ui.theme.AppDurations
 import com.alchemistaloha.xflow.ui.theme.AppRadius
 import com.alchemistaloha.xflow.ui.theme.AppTopBar
 import com.alchemistaloha.xflow.ui.theme.listSubtitleStyle
 import com.alchemistaloha.xflow.ui.theme.listTitleStyle
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.delay
 
 /**
  * A pushed settings page (Dart `Scaffold(appBar: AppBar(title), body: ListView)`):
@@ -283,6 +293,7 @@ internal fun SliderSetting(
             min = min,
             max = max,
             divisions = SettingsFormat.sliderDivisions(min, max, divisions),
+            label = SettingsFormat.sliderValueLabel(value),
             onChanged = onChanged,
         )
     }
@@ -293,6 +304,10 @@ internal fun SliderSetting(
  * white 8dp-radius thumb, faint accent halo while dragging. It reports only
  * the evenly spaced stops, and only when the stop changes, like a Flutter
  * `Slider` with `divisions`.
+ *
+ * With a [label], a bubble showing it pops up above the thumb while the
+ * slider is being dragged (and briefly after a tap), like the value
+ * indicator of a Flutter `Slider(label: ...)`.
  */
 @Composable
 internal fun AppSlider(
@@ -302,10 +317,28 @@ internal fun AppSlider(
     divisions: Int,
     onChanged: (Double) -> Unit,
     modifier: Modifier = Modifier,
+    label: String? = null,
 ) {
     val currentValue by rememberUpdatedState(value)
     val currentOnChanged by rememberUpdatedState(onChanged)
     var dragging by remember { mutableStateOf(false) }
+    // Counts taps; each one shows the bubble for a moment.
+    var tapCount by remember { mutableIntStateOf(0) }
+    var tapShowing by remember { mutableStateOf(false) }
+    LaunchedEffect(tapCount) {
+        if (tapCount > 0) {
+            tapShowing = true
+            delay(700)
+            tapShowing = false
+        }
+    }
+    val bubble by animateFloatAsState(
+        targetValue = if (label != null && (dragging || tapShowing)) 1f else 0f,
+        animationSpec = tween(AppDurations.fast),
+        label = "sliderBubble",
+    )
+    val textMeasurer = rememberTextMeasurer()
+    val bubbleTextStyle = MaterialTheme.typography.labelLarge.copy(color = Color.White, fontSize = 13.sp)
     val inset = 24.dp
 
     fun report(raw: Double) {
@@ -334,6 +367,7 @@ internal fun AppSlider(
                     val width = (size.width - 2 * insetPx).coerceAtLeast(1f)
                     val fraction = ((offset.x - insetPx) / width).coerceIn(0f, 1f)
                     report(min + fraction * (max - min))
+                    tapCount++
                 }
             }
             .pointerInput(min, max, divisions) {
@@ -373,6 +407,44 @@ internal fun AppSlider(
             drawCircle(AppColors.accent.copy(alpha = 0.12f), radius = 18.dp.toPx(), center = Offset(thumbX, centerY))
         }
         drawCircle(Color.White, radius = 8.dp.toPx(), center = Offset(thumbX, centerY))
+
+        // Value bubble above the thumb. It is drawn outside the slider's own 44dp, over
+        // the row above.
+        if (label != null && bubble > 0f) {
+            val text = textMeasurer.measure(label, bubbleTextStyle, maxLines = 1)
+            val bubbleWidth = maxOf(text.size.width + 20.dp.toPx(), 36.dp.toPx())
+            val bubbleHeight = text.size.height + 10.dp.toPx()
+            val pointer = 5.dp.toPx()
+            val bottom = centerY - 8.dp.toPx() - 8.dp.toPx()
+            val left = (thumbX - bubbleWidth / 2f)
+                .coerceIn(4.dp.toPx(), (size.width - bubbleWidth - 4.dp.toPx()).coerceAtLeast(4.dp.toPx()))
+            val top = bottom - pointer - bubbleHeight
+            // Grows out of the thumb.
+            scale(scale = 0.6f + 0.4f * bubble, pivot = Offset(thumbX, centerY)) {
+                drawRoundRect(
+                    color = AppColors.accent,
+                    topLeft = Offset(left, top),
+                    size = Size(bubbleWidth, bubbleHeight),
+                    cornerRadius = CornerRadius(8.dp.toPx()),
+                    alpha = bubble,
+                )
+                val tip = Path().apply {
+                    moveTo(thumbX - pointer, top + bubbleHeight - 0.5f)
+                    lineTo(thumbX + pointer, top + bubbleHeight - 0.5f)
+                    lineTo(thumbX, bottom)
+                    close()
+                }
+                drawPath(tip, AppColors.accent, alpha = bubble)
+                drawText(
+                    textLayoutResult = text,
+                    topLeft = Offset(
+                        left + (bubbleWidth - text.size.width) / 2f,
+                        top + (bubbleHeight - text.size.height) / 2f,
+                    ),
+                    alpha = bubble,
+                )
+            }
+        }
     }
 }
 

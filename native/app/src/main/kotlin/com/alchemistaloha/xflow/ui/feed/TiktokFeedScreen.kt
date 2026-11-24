@@ -32,7 +32,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.alchemistaloha.xflow.AppGraph
+import com.alchemistaloha.xflow.core.client.FetchDiagnostics
 import com.alchemistaloha.xflow.core.model.Async
+import com.alchemistaloha.xflow.core.model.FeedSort
+import com.alchemistaloha.xflow.data.subscriptions.SubscriptionListStore
+import com.alchemistaloha.xflow.ui.settings.LogViewerScreen
+import com.alchemistaloha.xflow.ui.subscriptions.SubscriptionImportScreen
 import com.alchemistaloha.xflow.core.model.Tweet
 import com.alchemistaloha.xflow.data.client.AccountStore
 import com.alchemistaloha.xflow.data.db.Repository
@@ -45,6 +50,7 @@ import com.alchemistaloha.xflow.ui.nav.Navigator
 import com.alchemistaloha.xflow.ui.settings.DiscoveryDebugOverlay
 import com.alchemistaloha.xflow.ui.settings.SettingsScreen
 import com.alchemistaloha.xflow.ui.theme.AppColors
+import com.alchemistaloha.xflow.ui.theme.AppLogoWordmark
 import com.alchemistaloha.xflow.ui.theme.AppRadius
 import com.alchemistaloha.xflow.ui.theme.EmptyState
 import com.alchemistaloha.xflow.ui.theme.FeedTopBar
@@ -71,20 +77,7 @@ fun TiktokFeedScreen() {
         if (!Fullscreen.isActive) {
             FeedTopBar(
                 modifier = Modifier.align(Alignment.TopCenter),
-                leading = {
-                    Row(Modifier.padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "XFlow",
-                            style = TextStyle(
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = (-0.4).sp,
-                                shadow = Shadow(Color.Black.copy(alpha = 0.54f), Offset.Zero, 6f),
-                            ),
-                        )
-                    }
-                },
+                leading = { AppLogoWordmark(Modifier.padding(start = 8.dp)) },
                 actions = {
                     if (account == null) {
                         PressableScale(onTap = { goToLogin() }, modifier = Modifier.padding(end = 4.dp)) {
@@ -140,10 +133,12 @@ private fun MediaFeed(pager: MediaPagerController) {
 
         is Async.Error -> EmptyState(
             icon = Icons.Rounded.CloudOff,
-            message = "Error: ${async.error}",
+            message = "The feed could not be built.",
+            detail = "${async.error::class.simpleName}: ${async.error.message ?: ""}",
             actions = {
-                FilledTonalButton(onClick = { goToLogin() }) { Text("Login to X") }
-                TextButton(onClick = { FeedStore.invalidate() }) { Text("Retry") }
+                FilledTonalButton(onClick = { FeedStore.invalidate() }) { Text("Retry") }
+                TextButton(onClick = { goToLogin() }) { Text("Login to X") }
+                TextButton(onClick = { Navigator.push { LogViewerScreen() } }) { Text("View logs") }
             },
         )
 
@@ -151,15 +146,7 @@ private fun MediaFeed(pager: MediaPagerController) {
             val state = async.value
             val tweets = state.tweets
             if (tweets.isEmpty()) {
-                if (state.isRefreshing) {
-                    EmptyState(loading = true, message = "Fetching latest media...")
-                } else {
-                    EmptyState(
-                        icon = Icons.Rounded.PlayCircleOutline,
-                        message = "No media found.",
-                        actions = { FilledTonalButton(onClick = { goToLogin() }) { Text("Login to X") } },
-                    )
-                }
+                EmptyFeed(isRefreshing = state.isRefreshing)
                 return
             }
             Box(Modifier.fillMaxSize()) {
@@ -178,6 +165,59 @@ private fun MediaFeed(pager: MediaPagerController) {
             }
         }
     }
+}
+
+/** The feed with nothing in it: what it is doing, or why it has nothing, and a way to try again. */
+@Composable
+private fun EmptyFeed(isRefreshing: Boolean) {
+    val account by AccountStore.state.collectAsState()
+    val outcome by FeedStore.lastOutcome.collectAsState()
+    val subscriptions by SubscriptionListStore.state.collectAsState()
+    val settings by SettingsStore.state.collectAsState()
+    val usesSubscriptions = settings.fetchStrategy != FeedSort.videomixer &&
+        settings.fetchStrategy != FeedSort.algorithmic &&
+        settings.fetchStrategy != FeedSort.chronological
+    val subscriptionCount = if (subscriptions.isLoading) null else subscriptions.allSubscriptions.size
+
+    if (isRefreshing) {
+        EmptyState(
+            loading = true,
+            message = "Fetching latest media...",
+            detail = when {
+                account == null -> "Not logged in to X."
+                !usesSubscriptions -> "Asking X for the ${settings.fetchStrategy.name} timeline."
+                subscriptionCount == null -> null
+                subscriptionCount == 0 -> "No subscriptions yet: looking up the accounts you follow."
+                else -> "Searching posts from $subscriptionCount subscriptions."
+            },
+        )
+        return
+    }
+
+    val notice = FetchDiagnostics.explainEmptyFeed(
+        outcome = outcome,
+        loggedIn = account != null,
+        subscriptionCount = subscriptionCount,
+        usesSubscriptions = usesSubscriptions,
+        cooldownMinutes = settings.cooldownDuration,
+    )
+    EmptyState(
+        icon = if (outcome?.isFailure == true) Icons.Rounded.CloudOff else Icons.Rounded.PlayCircleOutline,
+        message = notice.title,
+        detail = notice.detail,
+        actions = {
+            if (account == null || notice.needsLogin) {
+                FilledTonalButton(onClick = { goToLogin() }) { Text("Login to X") }
+                TextButton(onClick = { AppGraph.scope.launch { FeedStore.refresh() } }) { Text("Retry") }
+            } else {
+                FilledTonalButton(onClick = { AppGraph.scope.launch { FeedStore.refresh() } }) { Text("Retry") }
+            }
+            if (account != null && usesSubscriptions && subscriptionCount == 0) {
+                TextButton(onClick = { Navigator.push { SubscriptionImportScreen() } }) { Text("Import subscriptions") }
+            }
+            TextButton(onClick = { Navigator.push { LogViewerScreen() } }) { Text("View logs") }
+        },
+    )
 }
 
 private fun onFeedIndexChanged(index: Int) {

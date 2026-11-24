@@ -40,8 +40,21 @@ object TwitterLogFormat {
         return "${flattened.substring(0, maxLength).trimEnd()}..."
     }
 
+    /**
+     * The Flutter app decoded the (already decoded) value once more here, and
+     * `Uri.decodeQueryComponent` threw on any non-ASCII character and on a
+     * '%' that does not start an escape. That exception left
+     * `formatUriForLog` and the request was never sent: a search for
+     * "tiếng Việt" or "100% real" silently returned nothing. A log line must
+     * not decide whether a request goes out, so text that cannot be decoded
+     * is logged as it is.
+     */
     private fun decodeLogValue(value: String): Any? {
-        val decoded = XUri.decodeQueryComponent(value)
+        val decoded = try {
+            XUri.decodeQueryComponent(value)
+        } catch (_: IllegalArgumentException) {
+            value
+        }
         return try {
             Json.parseToJsonElement(decoded) as JsonElement
         } catch (_: Exception) {

@@ -1,5 +1,7 @@
 package com.alchemistaloha.xflow.data.feed
 
+import com.alchemistaloha.xflow.core.client.FetchDiagnostics
+import com.alchemistaloha.xflow.core.client.FetchOutcome
 import com.alchemistaloha.xflow.core.discovery.FeedPipeline
 import com.alchemistaloha.xflow.core.feed.InteractionToggler
 import com.alchemistaloha.xflow.core.feed.TweetInteractions
@@ -11,6 +13,7 @@ import com.alchemistaloha.xflow.core.model.SettingsState
 import com.alchemistaloha.xflow.core.model.Tweet
 import com.alchemistaloha.xflow.core.model.TweetResponse
 import com.alchemistaloha.xflow.core.util.AppLogger
+import com.alchemistaloha.xflow.AppGraph
 import com.alchemistaloha.xflow.data.RebuildingStore
 import com.alchemistaloha.xflow.data.client.TwitterClient
 import com.alchemistaloha.xflow.data.db.Repository
@@ -69,6 +72,37 @@ object FeedStore : RebuildingStore<FeedState>(watchesSettings = true) {
 
     override fun onReset() {
         viewIndex = 0
+    }
+
+    private val mutableLastOutcome = MutableStateFlow<FetchOutcome?>(null)
+
+    /** How the feed's last request to X went, so an empty feed can say why it is empty. */
+    val lastOutcome: StateFlow<FetchOutcome?> = mutableLastOutcome.asStateFlow()
+
+    /**
+     * Call after subscriptions were added (an import, a follow): an empty
+     * feed is rebuilt at once, a feed that has items is left alone and gets
+     * the new accounts with its next refresh.
+     */
+    fun onSubscriptionsChanged() {
+        AppGraph.scope.launch {
+            val current = peek()
+            if (current == null || current.tweets.isEmpty()) {
+                AppLogger.log("XFLOW: Subscriptions changed while the feed is empty. Rebuilding the feed.")
+                invalidate()
+            }
+        }
+    }
+
+    /** Tries again when the feed is built, empty and idle (the app coming back to the foreground). */
+    fun retryIfEmpty() {
+        AppGraph.scope.launch {
+            val current = peek() ?: return@launch
+            if (current.tweets.isEmpty() && !current.isRefreshing) {
+                AppLogger.log("XFLOW: Feed is empty; refreshing it again.")
+                refresh()
+            }
+        }
     }
 
     /** The feed's current value without starting or subscribing to it. */
@@ -136,9 +170,13 @@ object FeedStore : RebuildingStore<FeedState>(watchesSettings = true) {
 
     override fun onBuilt(settings: SettingsState) {
         // TRIGGER BACKGROUND SYNC
-        if (settings.isInitialized) {
-            buildScope.launch { refreshInBackground() }
+        if (!settings.isInitialized) {
+            // The saved settings could not be loaded. The Flutter app waited for
+            // them here, which left the feed on its spinner for good; refresh
+            // with the defaults instead.
+            AppLogger.log("XFLOW: Settings are not loaded; refreshing the feed with default settings.")
         }
+        buildScope.launch { refreshInBackground() }
     }
 
     suspend fun refresh() = inBuild {
@@ -154,7 +192,10 @@ object FeedStore : RebuildingStore<FeedState>(watchesSettings = true) {
         val client = twitterClient
         val settings = SettingsStore.state.value
 
-        AppLogger.log("XFLOW: Background refresh started")
+        AppLogger.log(
+            "XFLOW: Background refresh started. source=${settings.fetchStrategy} filters=${settings.filters.joinToString(",") { it.name }} " +
+                "minFaves=${settings.minFavesFilter} strictSubs=${settings.strictSubscriptionsOnly} avoidWatched=${settings.avoidWatchedContent}",
+        )
 
         try {
             // 1. Fetch from API
@@ -187,6 +228,7 @@ object FeedStore : RebuildingStore<FeedState>(watchesSettings = true) {
                 )
             }
 
+            mutableLastOutcome.value = freshResponse.outcome
             val freshPool = freshResponse.tweets
             val freshTagged = freshPool.map { it.copy(source = "API") }
 
@@ -203,6 +245,9 @@ object FeedStore : RebuildingStore<FeedState>(watchesSettings = true) {
                 filters = settings.filters,
             )
             val localTagged = localPool.map { it.copy(source = "Cache") }
+            AppLogger.log(
+                "XFLOW: DB after refresh: wrote=${freshPool.size} candidates=${localPool.size} totalCached=${Repository.getCachedMediaCount()}",
+            )
 
             if (!isCurrent(gen)) return
             if (value != null) {
@@ -243,7 +288,8 @@ object FeedStore : RebuildingStore<FeedState>(watchesSettings = true) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            AppLogger.log("XFLOW: Background refresh error: $e")
+            AppLogger.log("XFLOW: Background refresh error: $e\n${e.stackTraceToString().take(1500)}")
+            mutableLastOutcome.value = FetchDiagnostics.forException("Feed refresh", e)
             if (!isCurrent(gen)) return
             val current = value
             if (current != null) {
@@ -335,6 +381,7 @@ object FeedStore : RebuildingStore<FeedState>(watchesSettings = true) {
                         )
                     }
 
+                    if (response.outcome != null) mutableLastOutcome.value = response.outcome
                     val freshUnique = FeedPipeline.filterUnseen(response.tweets, seenIds, seenMedia)
 
                     if (response.tweets.isNotEmpty()) {

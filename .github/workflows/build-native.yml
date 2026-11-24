@@ -75,6 +75,18 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Upload R8 mapping (which classes and methods were kept, renamed or removed)
+        uses: actions/upload-artifact@v4
+        with:
+          name: xflow-native-r8-mapping
+          path: |
+            native/app/build/outputs/mapping/release/mapping.txt
+            native/app/build/outputs/mapping/release/usage.txt
+            native/app/build/outputs/mapping/release/seeds.txt
+            native/app/build/outputs/mapping/release/configuration.txt
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v4

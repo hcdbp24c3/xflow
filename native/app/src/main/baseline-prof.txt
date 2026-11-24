@@ -1,0 +1,7 @@
+# Baseline profile for the app's own code, written by hand (no device was
+# available to record one). It asks ART to compile the app's classes ahead of
+# time at install instead of interpreting them on the first runs. The
+# libraries (Compose, Media3, Coil, OkHttp) ship their own profiles, which the
+# build merges with this one. R8 rewrites these names to the minified ones.
+Lcom/alchemistaloha/xflow/**;
+HSPLcom/alchemistaloha/xflow/**->**(**)**

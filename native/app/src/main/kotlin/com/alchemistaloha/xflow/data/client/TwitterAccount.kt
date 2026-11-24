@@ -1,6 +1,7 @@
 package com.alchemistaloha.xflow.data.client
 
 import com.alchemistaloha.xflow.core.client.TwitterLogFormat
+import com.alchemistaloha.xflow.core.client.FetchDiagnostics
 import com.alchemistaloha.xflow.core.client.XUri
 import com.alchemistaloha.xflow.core.client.X_BEARER_TOKEN
 import com.alchemistaloha.xflow.core.client.X_MOBILE_USER_AGENT
@@ -88,8 +89,12 @@ object TwitterAccount {
         body: Any? = null,
         headers: Map<String, String>? = null,
         cacheDurationMillis: Long? = null,
+        transactionIdMode: TransactionIdMode = TransactionIdMode.generated,
     ): HttpResult {
-        val requestSummary = TwitterLogFormat.summarizeRequest(uri, method, body)
+        // Short on purpose: the operation and its variables. The feature flags are
+        // the same on every call and a POST body can hold the user's own text.
+        val requestSummary = "$method ${uri.path.substringAfterLast('/')}" +
+            (uri.queryParameters["variables"]?.let { " vars=${TwitterLogFormat.compactForLog(it, 300)}" } ?: "")
         val cacheKey = getCacheKey(uri)
         if (method == "GET" && cacheDurationMillis != null) {
             val cachedBody = cache.getString(cacheKey)
@@ -139,13 +144,22 @@ object TwitterAccount {
         var transactionId: String?
         var txIdStatus = "missing"
         try {
-            transactionId = TransactionIdService.generateForRequest(
-                uri.path,
-                method = method,
-            )
-            if (transactionId != null) {
+            transactionId = when (transactionIdMode) {
+                TransactionIdMode.generated -> TransactionIdService.generateForRequest(
+                    uri.path,
+                    method = method,
+                )
+                TransactionIdMode.placeholder -> TransactionIdMode.PLACEHOLDER_VALUE
+                TransactionIdMode.none -> null
+            }
+            if (transactionIdMode == TransactionIdMode.placeholder) {
+                combinedHeaders["x-client-transaction-id"] = TransactionIdMode.PLACEHOLDER_VALUE
+                txIdStatus = "placeholder"
+            } else if (transactionIdMode == TransactionIdMode.none) {
+                txIdStatus = "none:requested"
+            } else if (transactionId != null) {
                 combinedHeaders["x-client-transaction-id"] = transactionId
-                txIdStatus = "local:${formatTransactionIdForLog(transactionId)}"
+                txIdStatus = "local:len=${transactionId.length}"
             } else {
                 val transactionUri = XUri.http(
                     "x-client-transaction-id-generator.xyz",
@@ -164,7 +178,7 @@ object TwitterAccount {
                     }
                     if (transactionId != null) {
                         combinedHeaders["x-client-transaction-id"] = transactionId
-                        txIdStatus = "fallback:${formatTransactionIdForLog(transactionId)}"
+                        txIdStatus = "fallback:len=${transactionId.length}"
                     } else {
                         txIdStatus = "missing:null-response-field"
                     }
@@ -175,8 +189,9 @@ object TwitterAccount {
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            txIdStatus = "missing:error:${e::class.simpleName}"
-            AppLogger.log("Error generating x-client-transaction-id: $e")
+            // Reached when the page had no id and the fallback generator could not be used either.
+            txIdStatus = "missing:fallback-error:${e::class.simpleName}"
+            AppLogger.log("TXID fallback generator failed: ${e::class.simpleName}: ${e.message}")
         }
 
         AppLogger.log(
@@ -186,11 +201,8 @@ object TwitterAccount {
         val requestBuilder = Request.Builder().url(uri.toString())
         if (method == "POST") {
             val bodyBytes = (body?.toString() ?: "").toByteArray(Charsets.UTF_8)
-            // The Dart http package adds the charset to the content type of a text body.
-            val contentType = combinedHeaders["content-type"]
-            if (body is String && contentType != null && !contentType.contains("charset", ignoreCase = true)) {
-                combinedHeaders["content-type"] = "$contentType; charset=utf-8"
-            }
+            // The Dart http package sends a JSON content type as it is (no charset added);
+            // checked by running the Flutter client against a recording HTTP client.
             requestBuilder.post(bodyBytes.toRequestBody(null))
         } else {
             requestBuilder.get()
@@ -215,6 +227,10 @@ object TwitterAccount {
             resultHeaders["content-type"] = "application/json; charset=utf-8"
             return HttpResult(200, decodedBody, resultHeaders)
         }
+        AppLogger.log(
+            "HTTP error body: $requestSummary status=${response.statusCode} " +
+                (FetchDiagnostics.shorten(response.text(), 300) ?: "(empty)"),
+        )
         return HttpResult(response.statusCode, response.text(), response.headers)
     }
 
@@ -271,4 +287,20 @@ object TwitterAccount {
                 }
             })
         }
+}
+
+/** What a request sends as `x-client-transaction-id`. */
+enum class TransactionIdMode {
+    /** The id computed in the hidden x.com page; the third-party generator when the page has none. */
+    generated,
+
+    /** The fixed text the Flutter client ended up sending (its WebView call returned an unresolved promise). */
+    placeholder,
+
+    /** No header at all. */
+    none;
+
+    companion object {
+        const val PLACEHOLDER_VALUE = "{}"
+    }
 }

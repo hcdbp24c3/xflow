@@ -265,6 +265,8 @@ fun HashtagMediaFeedScreen(hashtag: String) {
                         tweets = tweets,
                         controller = pagerController,
                         modifier = Modifier.fillMaxSize(),
+                        // Nothing plays underneath a pushed screen (Settings).
+                        isActive = !Navigator.canPop,
                         onIndexChanged = onIndexChanged,
                         // The hashtag feed never precached images.
                         precacheImages = false,
@@ -275,7 +277,7 @@ fun HashtagMediaFeedScreen(hashtag: String) {
                             onPlaybackError = onPlaybackError,
                         )
                     }
-                    if (state.isLoadingMore || state.isRefreshing) {
+                    if ((state.isLoadingMore || state.isRefreshing) && !Fullscreen.isActive) {
                         TopProgressLine(Modifier.align(Alignment.TopCenter))
                     }
                 }
@@ -292,32 +294,35 @@ fun HashtagMediaFeedScreen(hashtag: String) {
             )
         }
 
-        FeedTopBar(
-            modifier = Modifier.align(Alignment.TopCenter),
-            leading = {
-                FloatingIconButton(
-                    icon = Icons.AutoMirrored.Rounded.ArrowBack,
-                    tooltip = "Back",
-                    onTap = { NavigationStore.back() },
-                )
-            },
-            title = { Text(hashtag, maxLines = 1) },
-            actions = {
-                FloatingIconButton(
-                    icon = Icons.Rounded.Refresh,
-                    tooltip = "Refresh",
-                    onTap = {
-                        pagerController.jumpToPage(0)
-                        launchStoreCall("hashtag refresh") { store.refresh() }
-                    },
-                )
-                FloatingIconButton(
-                    icon = Icons.Outlined.Settings,
-                    tooltip = "Settings",
-                    onTap = { Navigator.push { SettingsScreen() } },
-                )
-            },
-        )
+        // A fullscreen video has the whole window to itself.
+        if (!Fullscreen.isActive) {
+            FeedTopBar(
+                modifier = Modifier.align(Alignment.TopCenter),
+                leading = {
+                    FloatingIconButton(
+                        icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                        tooltip = "Back",
+                        onTap = { NavigationStore.back() },
+                    )
+                },
+                title = { Text(hashtag, maxLines = 1) },
+                actions = {
+                    FloatingIconButton(
+                        icon = Icons.Rounded.Refresh,
+                        tooltip = "Refresh",
+                        onTap = {
+                            pagerController.jumpToPage(0)
+                            launchStoreCall("hashtag refresh") { store.refresh() }
+                        },
+                    )
+                    FloatingIconButton(
+                        icon = Icons.Outlined.Settings,
+                        tooltip = "Settings",
+                        onTap = { Navigator.push { SettingsScreen() } },
+                    )
+                },
+            )
+        }
     }
 }
 

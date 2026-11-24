@@ -62,13 +62,22 @@ object BackgroundSync {
         syncTimer = null
     }
 
+    /** Runs one sync now, outside the interval (after an import). */
+    fun syncNow(client: TwitterClient, settings: SettingsState) {
+        if (!enabled) return
+        AppGraph.scope.launch { sync(client, settings) }
+    }
+
     private suspend fun sync(client: TwitterClient, settings: SettingsState) {
         if (isSyncing) return
         isSyncing = true
 
         try {
             val subs = Repository.getSubscriptions()
-            if (subs.isEmpty()) return
+            if (subs.isEmpty()) {
+                AppLogger.log("SYNC skipped: no subscriptions")
+                return
+            }
 
             // Pick a random subset from settings
             val targets = subs.shuffled().take(settings.syncBatchSize)
@@ -85,6 +94,10 @@ object BackgroundSync {
             if (response.tweets.isNotEmpty()) {
                 Repository.insertCachedMedia(response.tweets)
             }
+            AppLogger.log(
+                "SYNC done: accounts=${targets.size}/${subs.size} fetched=${response.tweets.size} " +
+                    "result=${response.outcome?.issue?.name ?: "unknown"} totalCached=${Repository.getCachedMediaCount()}",
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

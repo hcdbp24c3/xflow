@@ -23,6 +23,7 @@ import com.alchemistaloha.xflow.core.model.Async
 import com.alchemistaloha.xflow.core.model.Tweet
 import com.alchemistaloha.xflow.data.profile.UserMediaStores
 import com.alchemistaloha.xflow.data.settings.SettingsStore
+import com.alchemistaloha.xflow.ui.feed.Fullscreen
 import com.alchemistaloha.xflow.ui.feed.MediaPager
 import com.alchemistaloha.xflow.ui.feed.TiktokFeedItem
 import com.alchemistaloha.xflow.ui.feed.rememberMediaPagerController
@@ -104,6 +105,8 @@ fun UserMediaFeedScreen(screenName: String, initialIndex: Int, initialTweetId: S
                         MediaPager(
                             tweets = tweets,
                             controller = controller,
+                            // Nothing plays underneath a pushed screen (Settings).
+                            isActive = !Navigator.canPop,
                             onIndexChanged = onIndexChanged,
                         ) { tweet, isVisible, onPlaybackError ->
                             UserMediaFeedItem(
@@ -112,7 +115,7 @@ fun UserMediaFeedScreen(screenName: String, initialIndex: Int, initialTweetId: S
                                 onPlaybackError = onPlaybackError,
                             )
                         }
-                        if (state.isRefreshing) TopProgressLine(Modifier.align(Alignment.TopCenter))
+                        if (state.isRefreshing && !Fullscreen.isActive) TopProgressLine(Modifier.align(Alignment.TopCenter))
                     }
                 }
             }
@@ -130,29 +133,32 @@ fun UserMediaFeedScreen(screenName: String, initialIndex: Int, initialTweetId: S
             )
         }
 
-        FeedTopBar(
-            modifier = Modifier.align(Alignment.TopCenter),
-            leading = {
-                FloatingIconButton(
-                    icon = Icons.AutoMirrored.Rounded.ArrowBack,
-                    tooltip = "Back",
-                    onTap = { NavigationStore.back() },
-                )
-            },
-            title = { Text("@$screenName") },
-            actions = {
-                FloatingIconButton(
-                    icon = Icons.Rounded.Refresh,
-                    tooltip = "Refresh",
-                    onTap = { scope.launch { store.refresh() } },
-                )
-                FloatingIconButton(
-                    icon = Icons.Outlined.Settings,
-                    tooltip = "Settings",
-                    onTap = { Navigator.push { SettingsScreen() } },
-                )
-            },
-        )
+        // A fullscreen video has the whole window to itself.
+        if (!Fullscreen.isActive) {
+            FeedTopBar(
+                modifier = Modifier.align(Alignment.TopCenter),
+                leading = {
+                    FloatingIconButton(
+                        icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                        tooltip = "Back",
+                        onTap = { NavigationStore.back() },
+                    )
+                },
+                title = { Text("@$screenName") },
+                actions = {
+                    FloatingIconButton(
+                        icon = Icons.Rounded.Refresh,
+                        tooltip = "Refresh",
+                        onTap = { scope.launch { store.refresh() } },
+                    )
+                    FloatingIconButton(
+                        icon = Icons.Outlined.Settings,
+                        tooltip = "Settings",
+                        onTap = { Navigator.push { SettingsScreen() } },
+                    )
+                },
+            )
+        }
     }
 }
 

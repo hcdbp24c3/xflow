@@ -414,15 +414,22 @@ private fun ActionButton(
 
     PressableScale(onTap = onTap, tooltip = label) {
         Column(Modifier.width(56.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                icon,
-                contentDescription = label,
-                tint = color,
-                modifier = Modifier.size(29.dp).graphicsLayer {
+            Box(
+                Modifier.graphicsLayer {
                     scaleX = pop.value
                     scaleY = pop.value
                 },
-            )
+            ) {
+                // A dark copy one dp lower stands in for the Flutter icon shadow, so the
+                // white glyph keeps an edge on bright video. No blur.
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = Color.Black.copy(alpha = 0.35f),
+                    modifier = Modifier.size(29.dp).graphicsLayer { translationY = 1.dp.toPx() },
+                )
+                Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(29.dp))
+            }
             Spacer(Modifier.height(3.dp))
             Text(
                 label,
