@@ -1,0 +1,19 @@
+{
+  "data": {
+    "user": {
+      "result": {
+        "__typename": "User",
+        "rest_id": "701",
+        "avatar": {"image_url": "https://img.example/avatars/701_normal.jpg"},
+        "legacy": {
+          "screen_name": "Some_User",
+          "name": "Some User",
+          "description": "Line one\nline two",
+          "followers_count": 1234,
+          "friends_count": 56,
+          "profile_image_url_https": "https://img.example/avatars/701_legacy_normal.jpg"
+        }
+      }
+    }
+  }
+}

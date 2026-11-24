@@ -1,0 +1,11 @@
+{
+ "errors": [
+  {
+   "message": "Authorization: Denied by access control",
+   "code": 37,
+   "kind": "Permissions",
+   "name": "AuthorizationError"
+  }
+ ],
+ "data": {}
+}

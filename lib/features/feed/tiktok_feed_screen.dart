@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../player/player_pool_provider.dart';
 import 'feed_provider.dart';
 import '../player/widgets/media_container.dart';
 import '../../core/models/tweet.dart';
@@ -12,6 +11,9 @@ import '../auth/login_screen.dart';
 import 'bookmarks_screen.dart';
 import '../../core/client/account_provider.dart';
 import '../../core/navigation/navigation_provider.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_widgets.dart';
+import 'widgets/media_pager.dart';
 import 'widgets/tweet_text_overlay.dart';
 
 class TiktokFeedScreen extends ConsumerStatefulWidget {
@@ -23,78 +25,30 @@ class TiktokFeedScreen extends ConsumerStatefulWidget {
 
 class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
   final PageController _pageController = PageController();
-  int _currentIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController.addListener(_handleScroll);
-    // Initial pool warmup for first few videos
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _managePool();
-    });
-  }
 
   @override
   void dispose() {
-    _pageController.removeListener(_handleScroll);
     _pageController.dispose();
     super.dispose();
   }
 
-  void _handleScroll() {
-    if (!_pageController.hasClients) return;
-    final page = _pageController.page?.round() ?? 0;
-    if (page != _currentIndex) {
-      setState(() {
-        _currentIndex = page;
-      });
-      _managePool();
+  /// Runs once per landed page, not on every scroll tick.
+  void _onIndexChanged(int index) {
+    final notifier = ref.read(feedNotifierProvider.notifier);
+    notifier.reportViewIndex(index);
 
-      final feedAsync = ref.read(feedNotifierProvider);
-      if (feedAsync.hasValue) {
-        final tweets = feedAsync.value!.tweets;
+    final feedAsync = ref.read(feedNotifierProvider);
+    if (!feedAsync.hasValue) return;
+    final tweets = feedAsync.value!.tweets;
 
-        if (page < tweets.length) {
-          Repository.markMediaAsPlayed(tweets[page].id);
-        }
-
-        final settings = ref.read(settingsProvider);
-        if (page >= tweets.length - settings.lazyLoadThreshold &&
-            !feedAsync.value!.isRefreshing) {
-          ref.read(feedNotifierProvider.notifier).fetchMore();
-        }
-      }
+    if (index < tweets.length) {
+      Repository.markMediaAsPlayed(tweets[index].id);
     }
-  }
 
-  void _managePool() {
-    try {
-      final feedAsync = ref.read(feedNotifierProvider);
-      final state = feedAsync.value;
-      if (state == null) return;
-      final tweets = state.tweets;
-
-      final pool = ref.read(playerPoolProvider.notifier);
-      final activeIds = <String>{};
-
-      for (int i = _currentIndex - 1; i <= _currentIndex + 3; i++) {
-        if (i >= 0 && i < tweets.length) {
-          final tweet = tweets[i];
-          activeIds.add(tweet.id);
-
-          if (tweet.isVideo && tweet.mediaUrls.isNotEmpty) {
-            pool.warmup(tweet.id, tweet.mediaUrls.first);
-          } else if (tweet.mediaUrls.isNotEmpty) {
-            for (final url in tweet.mediaUrls) {
-              precacheImage(NetworkImage(url), context);
-            }
-          }
-        }
-      }
-      pool.cleanupExcept(activeIds);
-    } catch (e) {
-      debugPrint('XFLOW: Error in _managePool: $e');
+    final settings = ref.read(settingsProvider);
+    if (index >= tweets.length - settings.lazyLoadThreshold &&
+        !feedAsync.value!.isRefreshing) {
+      notifier.fetchMore();
     }
   }
 
@@ -103,53 +57,103 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
     final account = ref.watch(accountProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: () {
-            _pageController.jumpToPage(0);
-            ref.read(feedNotifierProvider.notifier).refresh();
-          },
-        ),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
+      backgroundColor: AppColors.background,
+      body: MediaScaffoldBody(
+        child: Stack(
           children: [
-            SvgPicture.asset(
-              'assets/app_icon.svg',
-              height: 24,
-              width: 24,
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              "XFlow",
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Positioned.fill(child: _buildMediaFeed()),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: FeedTopBar(
+                leading: Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SvgPicture.asset(
+                        'assets/app_icon.svg',
+                        height: 22,
+                        width: 22,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        "XFlow",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.4,
+                          shadows: [
+                            Shadow(blurRadius: 6, color: Colors.black54),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  if (account == null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: PressableScale(
+                        onTap: () => _goToLogin(),
+                        child: Container(
+                          height: 34,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(AppRadius.xl),
+                          ),
+                          child: const Text(
+                            'Login',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  FloatingIconButton(
+                    icon: Icons.refresh_rounded,
+                    tooltip: 'Refresh',
+                    onTap: () {
+                      if (_pageController.hasClients) {
+                        _pageController.jumpToPage(0);
+                      }
+                      ref
+                          .read(feedNotifierProvider.notifier)
+                          .reportViewIndex(0);
+                      ref.read(feedNotifierProvider.notifier).refresh();
+                    },
+                  ),
+                  FloatingIconButton(
+                    icon: Icons.bookmark_border_rounded,
+                    tooltip: 'Bookmarks',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (c) => const BookmarksScreen()),
+                    ),
+                  ),
+                  FloatingIconButton(
+                    icon: Icons.settings_outlined,
+                    tooltip: 'Settings',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (c) => const SettingsScreen()),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
-        actions: [
-          if (account == null)
-            TextButton.icon(
-              onPressed: () => _goToLogin(),
-              icon: const Icon(Icons.login),
-              label: const Text('Login'),
-            ),
-          IconButton(
-            icon: const Icon(Icons.bookmark_border),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (c) => const BookmarksScreen()),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (c) => const SettingsScreen()),
-            ),
-          ),
-        ],
       ),
-      body: _buildMediaFeed(),
     );
   }
 
@@ -165,101 +169,70 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
         final tweets = state.tweets;
         if (tweets.isEmpty) {
           if (state.isRefreshing) {
-            return const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Fetching latest media...',
-                      style: TextStyle(color: Colors.white70)),
-                ],
-              ),
+            return const EmptyState(
+              loading: true,
+              message: 'Fetching latest media...',
             );
           }
           return _buildNoItemsState();
         }
         return Stack(
           children: [
-            PageView.builder(
+            MediaPager(
+              tweets: tweets,
               controller: _pageController,
-              scrollDirection: Axis.vertical,
-              itemCount: tweets.length,
-              itemBuilder: (context, index) {
-                final settings = ref.read(settingsProvider);
+              isActive: isScreenActive,
+              onIndexChanged: _onIndexChanged,
+              itemBuilder: (context, tweet, isVisible, onPlaybackError) {
                 return TiktokFeedItem(
-                  tweet: tweets[index],
-                  isVisible: index == _currentIndex && isScreenActive,
-                  onPlaybackError: () {
-                    if (index == _currentIndex && mounted) {
-                      Future.delayed(
-                          Duration(seconds: settings.autoSkipDelaySeconds), () {
-                        if (mounted && _currentIndex == index) {
-                          _pageController.nextPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        }
-                      });
-                    }
-                  },
+                  tweet: tweet,
+                  isVisible: isVisible,
+                  onPlaybackError: onPlaybackError,
                 );
               },
             ),
-            if (state.isRefreshing)
-              const Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: LinearProgressIndicator(
-                  minHeight: 2,
-                  backgroundColor: Colors.transparent,
-                ),
-              ),
+            if (state.isRefreshing) const TopProgressLine(),
           ],
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(
+        child: SizedBox(
+          width: 26,
+          height: 26,
+          child: CircularProgressIndicator(strokeWidth: 2.5),
+        ),
+      ),
       error: (e, st) => _buildErrorState(e),
     );
   }
 
   Widget _buildNoItemsState() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('No media found.',
-              style: TextStyle(color: Colors.white70)),
-          const SizedBox(height: 16),
-          FilledButton.tonal(
-            onPressed: () => _goToLogin(),
-            child: const Text('Login to X'),
-          ),
-        ],
-      ),
+    return EmptyState(
+      icon: Icons.play_circle_outline_rounded,
+      message: 'No media found.',
+      actions: [
+        FilledButton.tonal(
+          onPressed: () => _goToLogin(),
+          child: const Text('Login to X'),
+        ),
+      ],
     );
   }
 
   Widget _buildErrorState(Object e) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('Error: $e',
-              style: const TextStyle(color: Colors.white70),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          FilledButton.tonal(
-            onPressed: () => _goToLogin(),
-            child: const Text('Login to X'),
-          ),
-          TextButton(
-            onPressed: () => ref.invalidate(feedNotifierProvider),
-            child: const Text('Retry'),
-          ),
-        ],
-      ),
+    return EmptyState(
+      icon: Icons.cloud_off_rounded,
+      message: 'Error: $e',
+      actions: [
+        FilledButton.tonal(
+          onPressed: () => _goToLogin(),
+          child: const Text('Login to X'),
+        ),
+        TextButton(
+          onPressed: () => ref.invalidate(feedNotifierProvider),
+          child: const Text('Retry'),
+        ),
+      ],
     );
   }
 
@@ -327,7 +300,7 @@ class DiscoveryDebugOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      top: 100,
+      top: MediaQuery.paddingOf(context).top + 60,
       left: 10,
       child: FutureBuilder<(int, int)>(
         future: _fetchDebugStats(),
@@ -375,7 +348,7 @@ class DiscoveryDebugOverlay extends StatelessWidget {
           Text(
             '$label: ',
             style: const TextStyle(
-              color: Colors.greenAccent,
+              color: AppColors.success,
               fontSize: 10,
               fontWeight: FontWeight.bold,
               fontFamily: 'monospace',

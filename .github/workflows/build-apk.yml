@@ -1,0 +1,114 @@
+name: Build test APK
+
+# Checks a pull request and builds an APK to try on a phone.
+# It never publishes anything: no tag, no release. The APK uses the
+# application id suffix ".ci", so it installs next to the released app
+# instead of replacing it. Signed releases are made by release.yml.
+#
+# Signing: every run signs with the same test key (repository secrets
+# CI_KEYSTORE_BASE64, CI_KEYSTORE_PASSWORD, CI_KEY_ALIAS), so a new build
+# installs over the previous one. This is NOT the release key; release.yml
+# and its KEYSTORE_* secrets are untouched. A run without the secrets (a pull
+# request from a fork) falls back to the runner's debug key, which changes
+# on every run.
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Analyze, test, build APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          # Pinned to the version the last release was built with. The
+          # project's Gradle 8.14 is rejected by newer stable Flutter
+          # (3.50 requires Gradle 9.3.1 or later).
+          channel: 'stable'
+          flutter-version: '3.47.5'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Errors fail the job. Infos and warnings are printed but do not fail
+      # it: master already has some.
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Test player and feed
+        run: flutter test test/features/player test/features/feed
+
+      # Master has tests that fail for reasons unrelated to a given pull
+      # request (see the pull request that added this file). They are run and
+      # reported, but do not block the APK.
+      - name: Test everything (informational)
+        continue-on-error: true
+        run: flutter test
+
+      - name: Set up the fixed test signing key
+        env:
+          CI_KEYSTORE_BASE64: ${{ secrets.CI_KEYSTORE_BASE64 }}
+          CI_KEYSTORE_PASSWORD: ${{ secrets.CI_KEYSTORE_PASSWORD }}
+          CI_KEY_ALIAS: ${{ secrets.CI_KEY_ALIAS }}
+        run: |
+          if [ -z "$CI_KEYSTORE_BASE64" ] || [ -z "$CI_KEYSTORE_PASSWORD" ] || [ -z "$CI_KEY_ALIAS" ]; then
+            echo "::warning::CI signing secrets are not available; the APK is signed with the runner's debug key and will not install over an earlier build."
+            exit 0
+          fi
+          umask 077
+          printf '%s' "$CI_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/xflow-ci.jks"
+          {
+            printf 'storeFile=%s\n' "$RUNNER_TEMP/xflow-ci.jks"
+            printf 'storePassword=%s\n' "$CI_KEYSTORE_PASSWORD"
+            printf 'keyPassword=%s\n' "$CI_KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$CI_KEY_ALIAS"
+          } > android/key.properties
+
+      - name: Build APK (arm64, release mode, signed with the fixed test key)
+        env:
+          ORG_GRADLE_PROJECT_ciIdSuffix: .ci
+        run: >
+          flutter build apk --release --target-platform android-arm64
+          --no-tree-shake-icons
+
+      - name: Show the signing certificate of the APK
+        run: |
+          APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
+          for apk in build/app/outputs/flutter-apk/app-release.apk; do
+            "$APKSIGNER" verify --print-certs "$apk" | grep -E 'certificate (DN|SHA-256 digest)'
+          done
+
+      - name: Remove the signing key from the runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/xflow-ci.jks" android/key.properties
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: xflow-ci-arm64-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14

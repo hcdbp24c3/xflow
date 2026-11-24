@@ -1,0 +1,21 @@
+{
+ "data": {
+  "user": {
+   "result": {
+    "__typename": "User",
+    "id": "VXNlcjo6006",
+    "rest_id": "6006",
+    "affiliates_highlighted_label": {},
+    "has_graduated_access": true,
+    "is_blue_verified": false,
+    "profile_image_shape": "Circle",
+    "legacy": {
+     "screen_name": "counts",
+     "name": "Counts",
+     "followers_count": "12",
+     "friends_count": 3
+    }
+   }
+  }
+ }
+}

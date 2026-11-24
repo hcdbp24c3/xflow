@@ -1,0 +1,42 @@
+{
+ "data": {
+  "user": {
+   "result": {
+    "__typename": "User",
+    "id": "VXNlcjo3003",
+    "rest_id": "3003",
+    "affiliates_highlighted_label": {},
+    "has_graduated_access": true,
+    "is_blue_verified": false,
+    "profile_image_shape": "Circle",
+    "legacy": {
+     "can_dm": false,
+     "created_at": "Tue Mar 21 20:50:14 +0000 2006",
+     "default_profile": false,
+     "description": "bio of Carol",
+     "entities": {
+      "description": {
+       "urls": []
+      }
+     },
+     "favourites_count": 1234,
+     "followers_count": 5678,
+     "friends_count": 321,
+     "listed_count": 12,
+     "location": "Hà Nội",
+     "media_count": 987,
+     "name": "Carol",
+     "normal_followers_count": 5678,
+     "profile_banner_url": "https://pbs.twimg.com/profile_banners/3003/1700000000",
+     "profile_image_url_https": "https://pbs.twimg.com/profile_images/3003/av_normal.jpg",
+     "screen_name": "carol",
+     "statuses_count": 4321,
+     "verified": false
+    },
+    "avatar": {
+     "image_url": "https://pbs.twimg.com/profile_images/3003/both_normal.jpg"
+    }
+   }
+  }
+ }
+}

@@ -1,11 +1,12 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/navigation/navigation_provider.dart';
-import '../player/player_pool_provider.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_widgets.dart';
 import 'profile_provider.dart';
 import '../player/widgets/media_container.dart';
 import '../../core/models/tweet.dart';
+import '../feed/widgets/media_pager.dart';
 import '../feed/widgets/tweet_text_overlay.dart';
 import '../settings/settings_provider.dart';
 import '../settings/settings_screen.dart';
@@ -29,75 +30,31 @@ class UserMediaFeedScreen extends ConsumerStatefulWidget {
 
 class _UserMediaFeedScreenState extends ConsumerState<UserMediaFeedScreen> {
   late PageController _pageController;
-  late int _currentIndex;
   bool _initialized = false;
 
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
-    _pageController.addListener(_handleScroll);
   }
 
   @override
   void dispose() {
-    _pageController.removeListener(_handleScroll);
     _pageController.dispose();
     super.dispose();
   }
 
-  void _handleScroll() {
-    if (!_pageController.hasClients) return;
-    final page = _pageController.page?.round() ?? 0;
-    if (page != _currentIndex) {
-      setState(() {
-        _currentIndex = page;
-      });
-      _managePool();
-
-      final feedAsync = ref.read(userMediaNotifierProvider(widget.screenName));
-      if (feedAsync.hasValue) {
-        final tweets = feedAsync.value!.tweets;
-        final settings = ref.read(settingsProvider);
-        if (page >= tweets.length - settings.lazyLoadThreshold &&
-            !feedAsync.value!.isLoadingMore) {
-          ref
-              .read(userMediaNotifierProvider(widget.screenName).notifier)
-              .fetchMore();
-        }
-      }
+  void _onIndexChanged(int index) {
+    final feedAsync = ref.read(userMediaNotifierProvider(widget.screenName));
+    if (!feedAsync.hasValue) return;
+    final tweets = feedAsync.value!.tweets;
+    final settings = ref.read(settingsProvider);
+    if (index >= tweets.length - settings.lazyLoadThreshold &&
+        !feedAsync.value!.isLoadingMore) {
+      ref
+          .read(userMediaNotifierProvider(widget.screenName).notifier)
+          .fetchMore();
     }
-  }
-
-  void _managePool() {
-    // Use a microtask to avoid building-phase conflicts
-    Future.microtask(() {
-      if (!mounted) return;
-      final feedAsync = ref.read(userMediaNotifierProvider(widget.screenName));
-      final state = feedAsync.value;
-      if (state == null) return;
-      final tweets = state.tweets;
-
-      final pool = ref.read(playerPoolProvider.notifier);
-      final activeIds = <String>{};
-
-      for (int i = _currentIndex - 1; i <= _currentIndex + 3; i++) {
-        if (i >= 0 && i < tweets.length) {
-          final tweet = tweets[i];
-          activeIds.add(tweet.id);
-
-          if (tweet.isVideo && tweet.mediaUrls.isNotEmpty) {
-            pool.warmup(tweet.id, tweet.mediaUrls.first);
-          } else if (tweet.mediaUrls.isNotEmpty) {
-            for (final url in tweet.mediaUrls) {
-              precacheImage(NetworkImage(url), context);
-            }
-          }
-        }
-      }
-      pool.cleanupExcept(activeIds);
-    });
   }
 
   @override
@@ -118,145 +75,115 @@ class _UserMediaFeedScreenState extends ConsumerState<UserMediaFeedScreen> {
           }
         }
 
-        if (targetIndex < tweets.length) {
-          if (_pageController.hasClients) {
-            _pageController.jumpToPage(targetIndex);
-          }
-          setState(() {
-            _currentIndex = targetIndex;
-          });
+        // The pager picks the new page up from the jump itself.
+        if (targetIndex < tweets.length && _pageController.hasClients) {
+          _pageController.jumpToPage(targetIndex);
         }
         _initialized = true;
       }
-
-      // Always manage pool when data changes
-      if (next.hasValue) {
-        _managePool();
-      }
     });
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => ref.read(navigationProvider.notifier).back(),
-        ),
-        title: Text('@${widget.screenName}',
-            style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white)),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => ref
-                .read(userMediaNotifierProvider(widget.screenName).notifier)
-                .refresh(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined, color: Colors.white),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (c) => const SettingsScreen()),
+      backgroundColor: AppColors.background,
+      body: MediaScaffoldBody(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: feedAsync.when(
+                data: (state) {
+                  final tweets = state.tweets;
+                  if (tweets.isEmpty) {
+                    if (state.isRefreshing) {
+                      return const EmptyState(loading: true, message: '');
+                    }
+                    return EmptyState(
+                      icon: Icons.play_circle_outline_rounded,
+                      message: 'No media found.',
+                      actions: [
+                        FilledButton.tonal(
+                          onPressed: () => ref
+                              .read(userMediaNotifierProvider(widget.screenName)
+                                  .notifier)
+                              .refresh(),
+                          child: const Text('Refresh'),
+                        ),
+                      ],
+                    );
+                  }
+
+                  return Stack(
+                    children: [
+                      MediaPager(
+                        tweets: tweets,
+                        controller: _pageController,
+                        initialIndex: widget.initialIndex,
+                        onIndexChanged: _onIndexChanged,
+                        itemBuilder:
+                            (context, tweet, isVisible, onPlaybackError) {
+                          return UserMediaFeedItem(
+                            tweet: tweet,
+                            isVisible: isVisible,
+                            onPlaybackError: onPlaybackError,
+                          );
+                        },
+                      ),
+                      if (state.isRefreshing) const TopProgressLine(),
+                    ],
+                  );
+                },
+                loading: () => const EmptyState(loading: true, message: ''),
+                error: (e, st) => EmptyState(
+                  icon: Icons.cloud_off_rounded,
+                  message: 'Error: $e',
+                  actions: [
+                    FilledButton.tonal(
+                      onPressed: () => ref
+                          .read(userMediaNotifierProvider(widget.screenName)
+                              .notifier)
+                          .refresh(),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ],
-      ),
-      body: feedAsync.when(
-        data: (state) {
-          final tweets = state.tweets;
-          if (tweets.isEmpty) {
-            if (state.isRefreshing) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('No media found.',
-                      style: TextStyle(color: Colors.white70)),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => ref
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: FeedTopBar(
+                leading: FloatingIconButton(
+                  icon: Icons.arrow_back_rounded,
+                  tooltip: 'Back',
+                  onTap: () => ref.read(navigationProvider.notifier).back(),
+                ),
+                title: Text('@${widget.screenName}'),
+                actions: [
+                  FloatingIconButton(
+                    icon: Icons.refresh_rounded,
+                    tooltip: 'Refresh',
+                    onTap: () => ref
                         .read(userMediaNotifierProvider(widget.screenName)
                             .notifier)
                         .refresh(),
-                    child: const Text('Refresh'),
+                  ),
+                  FloatingIconButton(
+                    icon: Icons.settings_outlined,
+                    tooltip: 'Settings',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (c) => const SettingsScreen()),
+                    ),
                   ),
                 ],
               ),
-            );
-          }
-
-          // Ensure pool is warmed up for current view
-          _managePool();
-
-          return Stack(
-            children: [
-              PageView.builder(
-                controller: _pageController,
-                scrollDirection: Axis.vertical,
-                itemCount: tweets.length,
-                itemBuilder: (context, index) {
-                  final settings = ref.read(settingsProvider);
-                  final tweet = tweets[index];
-                  return UserMediaFeedItem(
-                    key: ValueKey('user_feed_${tweet.id}'),
-                    tweet: tweet,
-                    isVisible: index == _currentIndex,
-                    onPlaybackError: () {
-                      if (index == _currentIndex && mounted) {
-                        Future.delayed(
-                            Duration(seconds: settings.autoSkipDelaySeconds),
-                            () {
-                          if (mounted && _currentIndex == index) {
-                            _pageController.nextPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        });
-                      }
-                    },
-                  );
-                },
-              ),
-              if (state.isRefreshing)
-                const Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: LinearProgressIndicator(
-                    minHeight: 2,
-                    backgroundColor: Colors.transparent,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                  ),
-                ),
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, st) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Error: $e', style: const TextStyle(color: Colors.white70)),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref
-                    .read(userMediaNotifierProvider(widget.screenName).notifier)
-                    .refresh(),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
+
 class UserMediaFeedItem extends StatelessWidget {
   final Tweet tweet;
   final bool isVisible;

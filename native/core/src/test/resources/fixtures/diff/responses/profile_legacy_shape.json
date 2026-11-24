@@ -1,0 +1,39 @@
+{
+ "data": {
+  "user": {
+   "result": {
+    "__typename": "User",
+    "id": "VXNlcjo1001",
+    "rest_id": "1001",
+    "affiliates_highlighted_label": {},
+    "has_graduated_access": true,
+    "is_blue_verified": false,
+    "profile_image_shape": "Circle",
+    "legacy": {
+     "can_dm": false,
+     "created_at": "Tue Mar 21 20:50:14 +0000 2006",
+     "default_profile": false,
+     "description": "bio of Alice Nguyễn",
+     "entities": {
+      "description": {
+       "urls": []
+      }
+     },
+     "favourites_count": 1234,
+     "followers_count": 5678,
+     "friends_count": 321,
+     "listed_count": 12,
+     "location": "Hà Nội",
+     "media_count": 987,
+     "name": "Alice Nguyễn",
+     "normal_followers_count": 5678,
+     "profile_banner_url": "https://pbs.twimg.com/profile_banners/1001/1700000000",
+     "profile_image_url_https": "https://pbs.twimg.com/profile_images/1001/av_normal.jpg",
+     "screen_name": "alice_media",
+     "statuses_count": 4321,
+     "verified": false
+    }
+   }
+  }
+ }
+}

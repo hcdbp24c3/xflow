@@ -1,0 +1,241 @@
+{
+ "data": {
+  "threaded_conversation_with_injections_v2": {
+   "instructions": [
+    {
+     "type": "TimelineAddEntries",
+     "entries": [
+      {
+       "entryId": "tweet-1970000000000000001",
+       "sortIndex": "1840000000000000000",
+       "content": {
+        "entryType": "TimelineTimelineItem",
+        "__typename": "TimelineTimelineItem",
+        "itemContent": {
+         "itemType": "TimelineTweet",
+         "__typename": "TimelineTweet",
+         "tweet_results": {
+          "result": {
+           "__typename": "TweetTombstone",
+           "tombstone": {
+            "text": {
+             "text": "Age-restricted adult content."
+            }
+           }
+          }
+         },
+         "tweetDisplayType": "Tweet"
+        },
+        "clientEventInfo": {
+         "component": "result",
+         "element": "tweet"
+        }
+       }
+      },
+      {
+       "entryId": "conversationthread-1970000000000000002",
+       "sortIndex": "1840000000000000000",
+       "content": {
+        "entryType": "TimelineTimelineModule",
+        "__typename": "TimelineTimelineModule",
+        "items": [
+         {
+          "entryId": "conversationthread-1970000000000000002-tweet-1970000000000000002",
+          "dispensable": false,
+          "item": {
+           "itemContent": {
+            "itemType": "TimelineTweet",
+            "__typename": "TimelineTweet",
+            "tweet_results": {
+             "result": {
+              "__typename": "Tweet",
+              "rest_id": "1970000000000000002",
+              "core": {
+               "user_results": {
+                "result": {
+                 "__typename": "User",
+                 "id": "VXNlcjo2002",
+                 "rest_id": "2002",
+                 "affiliates_highlighted_label": {},
+                 "avatar": {
+                  "image_url": "https://pbs.twimg.com/profile_images/2002/new_normal.jpg"
+                 },
+                 "core": {
+                  "created_at": "Mon Jun 02 08:15:00 +0000 2014",
+                  "name": "Bob 🚀",
+                  "screen_name": "bob_new"
+                 },
+                 "dm_permissions": {
+                  "can_dm": true
+                 },
+                 "has_graduated_access": true,
+                 "is_blue_verified": true,
+                 "legacy": {
+                  "default_profile": true,
+                  "description": "new shape bio of Bob 🚀",
+                  "entities": {
+                   "description": {
+                    "urls": []
+                   }
+                  },
+                  "favourites_count": 10,
+                  "followers_count": 222,
+                  "friends_count": 111,
+                  "media_count": 3,
+                  "statuses_count": 44
+                 },
+                 "location": {
+                  "location": "Sài Gòn"
+                 },
+                 "media_permissions": {
+                  "can_media_tag": true
+                 },
+                 "privacy": {
+                  "protected": false
+                 },
+                 "profile_image_shape": "Circle",
+                 "verification": {
+                  "verified": false
+                 }
+                }
+               }
+              },
+              "unmention_data": {},
+              "edit_control": {
+               "edit_tweet_ids": [
+                "1970000000000000002"
+               ],
+               "editable_until_msecs": "1539206364000",
+               "is_edit_eligible": false,
+               "edits_remaining": "5"
+              },
+              "is_translatable": true,
+              "views": {
+               "count": "1200",
+               "state": "EnabledWithCount"
+              },
+              "source": "<a href=\"https://mobile.twitter.com\" rel=\"nofollow\">Twitter Web App</a>",
+              "legacy": {
+               "bookmark_count": 3,
+               "bookmarked": false,
+               "created_at": "Wed Oct 10 20:19:24 +0000 2018",
+               "conversation_id_str": "1970000000000000002",
+               "display_text_range": [
+                0,
+                10
+               ],
+               "entities": {
+                "hashtags": [],
+                "symbols": [],
+                "timestamps": [],
+                "urls": [],
+                "user_mentions": [],
+                "media": [
+                 {
+                  "display_url": "pic.x.com/abc1202",
+                  "expanded_url": "https://x.com/u/status/1/photo/1",
+                  "id_str": "1202",
+                  "indices": [
+                   10,
+                   33
+                  ],
+                  "media_key": "3_1202",
+                  "media_url_https": "https://pbs.twimg.com/media/P1202.jpg",
+                  "type": "photo",
+                  "url": "https://t.co/p1202",
+                  "ext_media_availability": {
+                   "status": "Available"
+                  },
+                  "sizes": {
+                   "large": {
+                    "h": 1536,
+                    "w": 2048,
+                    "resize": "fit"
+                   }
+                  },
+                  "original_info": {
+                   "height": 1536,
+                   "width": 2048,
+                   "focus_rects": []
+                  }
+                 }
+                ]
+               },
+               "favorite_count": 42,
+               "favorited": false,
+               "full_text": "still here",
+               "is_quote_status": false,
+               "lang": "vi",
+               "possibly_sensitive": false,
+               "possibly_sensitive_editable": true,
+               "quote_count": 1,
+               "reply_count": 5,
+               "retweet_count": 7,
+               "retweeted": false,
+               "user_id_str": "2002",
+               "id_str": "1970000000000000002",
+               "extended_entities": {
+                "media": [
+                 {
+                  "display_url": "pic.x.com/abc1202",
+                  "expanded_url": "https://x.com/u/status/1/photo/1",
+                  "id_str": "1202",
+                  "indices": [
+                   10,
+                   33
+                  ],
+                  "media_key": "3_1202",
+                  "media_url_https": "https://pbs.twimg.com/media/P1202.jpg",
+                  "type": "photo",
+                  "url": "https://t.co/p1202",
+                  "ext_media_availability": {
+                   "status": "Available"
+                  },
+                  "sizes": {
+                   "large": {
+                    "h": 1536,
+                    "w": 2048,
+                    "resize": "fit"
+                   }
+                  },
+                  "original_info": {
+                   "height": 1536,
+                   "width": 2048,
+                   "focus_rects": []
+                  }
+                 }
+                ]
+               }
+              }
+             }
+            },
+            "tweetDisplayType": "Tweet"
+           },
+           "clientEventInfo": {
+            "component": "tweet"
+           }
+          }
+         }
+        ],
+        "displayType": "VerticalConversation",
+        "clientEventInfo": {
+         "component": "suggest_ranked_organic_tweet"
+        }
+       }
+      },
+      {
+       "entryId": "cursor-bottom-1840000000000000000",
+       "sortIndex": "1840000000000000000",
+       "content": {
+        "entryType": "TimelineTimelineCursor",
+        "__typename": "TimelineTimelineCursor",
+        "value": "tomb-bottom",
+        "cursorType": "Bottom"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

@@ -43,6 +43,9 @@ class PlayerPoolNotifier extends Notifier<Map<String, PlayerInstance>> {
   }
 
   void cleanupExcept(Set<String> activeIds) {
+    // Nothing to drop: keep the same map so no listener is notified.
+    if (state.keys.every(activeIds.contains)) return;
+
     final newState = <String, PlayerInstance>{};
     for (final entry in state.entries) {
       if (activeIds.contains(entry.key)) {

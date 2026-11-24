@@ -1,0 +1,151 @@
+name: Build native APK
+
+# Checks the Kotlin rewrite under native/ and builds an APK to try on a phone.
+# It never publishes anything: no tag, no release. The APK uses the
+# application id suffix ".kt", so it installs next to the released app and
+# next to the Flutter test build (suffix ".ci").
+#
+# Signing: every run signs with the same test key (repository secrets
+# CI_KEYSTORE_BASE64, CI_KEYSTORE_PASSWORD, CI_KEY_ALIAS), so a new build
+# installs over the previous one. This is NOT the release key; release.yml
+# and its KEYSTORE_* secrets are untouched. A run without the secrets (a pull
+# request from a fork) falls back to the runner's debug key, which changes
+# on every run.
+
+on:
+  pull_request:
+    paths:
+      - 'native/**'
+      - '.github/workflows/build-native.yml'
+  workflow_dispatch:
+    inputs:
+      dump_classpath:
+        description: 'Also upload the compile classpath (for native/tools/check-app.sh)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Test, build APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: native
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Dump compile classpath
+        if: github.event_name == 'workflow_dispatch' && inputs.dump_classpath
+        run: |
+          ./gradlew :app:dumpCompileClasspath --stacktrace
+          cp "$ANDROID_HOME/platforms/android-36/android.jar" app/build/classpath-dump/android.jar || true
+
+      - name: Upload compile classpath
+        if: github.event_name == 'workflow_dispatch' && inputs.dump_classpath
+        uses: actions/upload-artifact@v4
+        with:
+          name: compile-classpath
+          path: native/app/build/classpath-dump
+          retention-days: 3
+
+      - name: Unit tests
+        run: ./gradlew :core:test :app:testReleaseUnitTest --stacktrace
+
+      - name: Set up the fixed test signing key
+        env:
+          CI_KEYSTORE_BASE64: ${{ secrets.CI_KEYSTORE_BASE64 }}
+          CI_KEYSTORE_PASSWORD: ${{ secrets.CI_KEYSTORE_PASSWORD }}
+          CI_KEY_ALIAS: ${{ secrets.CI_KEY_ALIAS }}
+        run: |
+          if [ -z "$CI_KEYSTORE_BASE64" ] || [ -z "$CI_KEYSTORE_PASSWORD" ] || [ -z "$CI_KEY_ALIAS" ]; then
+            echo "::warning::CI signing secrets are not available; the APK is signed with the runner's debug key and will not install over an earlier build."
+            exit 0
+          fi
+          umask 077
+          printf '%s' "$CI_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/xflow-ci.jks"
+          {
+            printf 'storeFile=%s\n' "$RUNNER_TEMP/xflow-ci.jks"
+            printf 'storePassword=%s\n' "$CI_KEYSTORE_PASSWORD"
+            printf 'keyPassword=%s\n' "$CI_KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$CI_KEY_ALIAS"
+          } > key.properties
+
+      - name: Build APKs (arm64 and 32-bit arm, release mode, minified, signed with the fixed test key)
+        run: |
+          mkdir -p "$RUNNER_TEMP/apk/arm64-v8a" "$RUNNER_TEMP/apk/armeabi-v7a"
+          for abi in arm64-v8a armeabi-v7a; do
+            ./gradlew :app:assembleRelease -PciIdSuffix=.kt -Pabi="$abi" --stacktrace
+            for apk in app/build/outputs/apk/release/*.apk; do
+              cp "$apk" "$RUNNER_TEMP/apk/$abi/xflow-native-$abi.apk"
+            done
+          done
+
+      - name: Show the signing certificate of the APKs
+        run: |
+          APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
+          for apk in "$RUNNER_TEMP"/apk/*/*.apk; do
+            echo "$apk"
+            "$APKSIGNER" verify --print-certs "$apk" | grep -E 'certificate (DN|SHA-256 digest)'
+            unzip -l "$apk" | grep -E 'lib/[^/]+/' | awk '{print $4}' | cut -d/ -f2 | sort -u | sed 's/^/  abi: /' || true
+          done
+
+      - name: Remove the signing key from the runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/xflow-ci.jks" key.properties
+
+      - name: Upload APK (arm64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: xflow-native-arm64-apk
+          path: ${{ runner.temp }}/apk/arm64-v8a/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload APK (32-bit arm)
+        uses: actions/upload-artifact@v4
+        with:
+          name: xflow-native-arm32-apk
+          path: ${{ runner.temp }}/apk/armeabi-v7a/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload R8 mapping (which classes and methods were kept, renamed or removed)
+        uses: actions/upload-artifact@v4
+        with:
+          name: xflow-native-r8-mapping
+          path: |
+            native/app/build/outputs/mapping/release/mapping.txt
+            native/app/build/outputs/mapping/release/usage.txt
+            native/app/build/outputs/mapping/release/seeds.txt
+            native/app/build/outputs/mapping/release/configuration.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            native/core/build/reports/tests
+            native/app/build/reports/tests
+          retention-days: 7

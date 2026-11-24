@@ -1,0 +1,52 @@
+{
+ "data": {
+  "user": {
+   "result": {
+    "__typename": "User",
+    "id": "VXNlcjo2002",
+    "rest_id": "2002",
+    "affiliates_highlighted_label": {},
+    "avatar": {
+     "image_url": "https://pbs.twimg.com/profile_images/2002/new_normal.jpg"
+    },
+    "core": {
+     "created_at": "Mon Jun 02 08:15:00 +0000 2014",
+     "name": "Bob 🚀",
+     "screen_name": "bob_new"
+    },
+    "dm_permissions": {
+     "can_dm": true
+    },
+    "has_graduated_access": true,
+    "is_blue_verified": true,
+    "legacy": {
+     "default_profile": true,
+     "description": "new shape bio of Bob 🚀",
+     "entities": {
+      "description": {
+       "urls": []
+      }
+     },
+     "favourites_count": 10,
+     "followers_count": 222,
+     "friends_count": 111,
+     "media_count": 3,
+     "statuses_count": 44
+    },
+    "location": {
+     "location": "Sài Gòn"
+    },
+    "media_permissions": {
+     "can_media_tag": true
+    },
+    "privacy": {
+     "protected": false
+    },
+    "profile_image_shape": "Circle",
+    "verification": {
+     "verified": false
+    }
+   }
+  }
+ }
+}

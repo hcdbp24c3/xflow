@@ -7,6 +7,8 @@ import 'features/subscriptions/subscription_list_screen.dart';
 import 'features/profile/user_details_screen.dart';
 import 'features/profile/user_media_feed_screen.dart';
 import 'core/navigation/navigation_provider.dart';
+import 'core/theme/app_theme.dart';
+import 'core/theme/app_widgets.dart';
 import 'core/client/background_sync.dart';
 import 'core/client/transaction_id_service.dart';
 import 'core/client/twitter_client.dart';
@@ -56,27 +58,7 @@ class XFlowApp extends ConsumerWidget {
     return MaterialApp(
       title: 'XFlow',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-          brightness: Brightness.dark,
-          surface: Colors.black,
-        ),
-        scaffoldBackgroundColor: Colors.black,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.black,
-          elevation: 0,
-          centerTitle: true,
-        ),
-        navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: Colors.black,
-          indicatorColor: Colors.blue.withValues(alpha: 0.2),
-          labelTextStyle: WidgetStateProperty.all(
-            const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-          ),
-        ),
-      ),
+      theme: AppTheme.dark(),
       home: const MainScaffold(),
     );
   }
@@ -100,16 +82,20 @@ class MainScaffold extends ConsumerWidget {
     );
 
     Widget? overlayScreen;
+    String overlayKey = '';
     if (nav.selectedHashtag != null) {
+      overlayKey = 'hashtag:${nav.selectedHashtag}';
       overlayScreen = HashtagMediaFeedScreen(hashtag: nav.selectedHashtag!);
     } else if (nav.selectedUser != null) {
       if (nav.userMediaInitialIndex != null) {
+        overlayKey = 'media:${nav.selectedUser}';
         overlayScreen = UserMediaFeedScreen(
           screenName: nav.selectedUser!,
           initialIndex: nav.userMediaInitialIndex!,
           initialTweetId: nav.userMediaInitialTweetId,
         );
       } else {
+        overlayKey = 'user:${nav.selectedUser}';
         overlayScreen = UserDetailsScreen(screenName: nav.selectedUser!);
       }
     }
@@ -126,11 +112,21 @@ class MainScaffold extends ConsumerWidget {
           top: 0,
           child: TransactionIdWebViewHost(),
         ),
-        if (overlayScreen != null)
-          Container(
-            color: Colors.black,
-            child: overlayScreen,
+        // Profile and hashtag screens fade in over the tabs and out again.
+        Positioned.fill(
+          child: AnimatedSwitcher(
+            duration: AppDurations.normal,
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: overlayScreen == null
+                ? const SizedBox.shrink(key: ValueKey('no-overlay'))
+                : ColoredBox(
+                    key: ValueKey(overlayKey),
+                    color: AppColors.background,
+                    child: overlayScreen,
+                  ),
           ),
+        ),
       ],
     );
 
@@ -143,32 +139,125 @@ class MainScaffold extends ConsumerWidget {
       },
       child: Scaffold(
         body: body,
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: nav.currentTab.index,
-          onDestinationSelected: (index) {
-            navNotifier.setTab(MainTab.values[index]);
-            if (index == 1) {
+        bottomNavigationBar: _BottomBar(
+          current: nav.currentTab,
+          onSelected: (tab) {
+            navNotifier.setTab(tab);
+            if (tab == MainTab.subscriptions) {
               ref.invalidate(subscriptionListProvider);
             }
           },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.video_library_outlined),
-              selectedIcon: Icon(Icons.video_library, color: Colors.blue),
-              label: 'Media',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.people_outline),
-              selectedIcon: Icon(Icons.people, color: Colors.blue),
-              label: 'Subscriptions',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.trending_up_outlined),
-              selectedIcon: Icon(Icons.trending_up, color: Colors.blue),
-              label: 'Hashtags',
-            ),
-          ],
         ),
+      ),
+    );
+  }
+}
+
+/// A slim, flat tab bar: icon over a small label, no pill indicator.
+class _BottomBar extends StatelessWidget {
+  final MainTab current;
+  final ValueChanged<MainTab> onSelected;
+
+  const _BottomBar({required this.current, required this.onSelected});
+
+  static const _items = [
+    (
+      tab: MainTab.media,
+      icon: Icons.play_circle_outline_rounded,
+      selectedIcon: Icons.play_circle_rounded,
+      label: 'Media',
+    ),
+    (
+      tab: MainTab.subscriptions,
+      icon: Icons.people_outline_rounded,
+      selectedIcon: Icons.people_rounded,
+      label: 'Subscriptions',
+    ),
+    (
+      tab: MainTab.trending,
+      icon: Icons.tag_rounded,
+      selectedIcon: Icons.tag_rounded,
+      label: 'Hashtags',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppColors.background,
+        border: Border(top: BorderSide(color: AppColors.outline, width: 0.5)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 54,
+          child: Row(
+            children: [
+              for (final item in _items)
+                Expanded(
+                  child: _BottomBarItem(
+                    icon: item.icon,
+                    selectedIcon: item.selectedIcon,
+                    label: item.label,
+                    selected: item.tab == current,
+                    onTap: () => onSelected(item.tab),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomBarItem extends StatelessWidget {
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _BottomBarItem({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? AppColors.textPrimary : AppColors.textTertiary;
+    return PressableScale(
+      onTap: onTap,
+      tooltip: label,
+      pressedScale: 0.92,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AnimatedSwitcher(
+            duration: AppDurations.fast,
+            child: Icon(
+              selected ? selectedIcon : icon,
+              key: ValueKey(selected),
+              color: color,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 3),
+          AnimatedDefaultTextStyle(
+            duration: AppDurations.fast,
+            style: TextStyle(
+              color: color,
+              fontSize: 10.5,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              letterSpacing: 0.1,
+            ),
+            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ],
       ),
     );
   }
