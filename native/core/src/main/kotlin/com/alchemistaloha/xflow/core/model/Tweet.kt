@@ -20,6 +20,10 @@ data class Tweet(
     val isRetweeted: Boolean = false,
     val viewCount: Int = 0,
     val isBookmarked: Boolean = false,
+    /** The language X detected for the text (`ja`, `en`, `und`…). Null for a post read back from the local cache. */
+    val lang: String? = null,
+    /** HLS master playlist of the first video, where its subtitle tracks are listed. Null when unknown. */
+    val hlsUrl: String? = null,
 ) {
     val userAvatarUrlHighRes: String?
         get() = userAvatarUrl?.replace("_normal", "")

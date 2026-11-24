@@ -687,6 +687,7 @@ object TwitterParser {
             var thumbnailUrl: String? = null
             var mediaKey: String? = null
             var isVideo = false
+            var hlsUrl: String? = null
 
             if (allMedia.isNotEmpty() && allMedia.first().at("media_url_https") != null) {
                 thumbnailUrl = allMedia.first().at("media_url_https").string()
@@ -698,6 +699,13 @@ object TwitterParser {
                     isVideo = true
                     val variants = m.at("video_info").opt("variants").list()
                     if (variants.isEmpty()) continue
+
+                    // The playlist is not played, it is where the subtitle tracks are listed.
+                    if (hlsUrl == null && mediaUrls.isEmpty()) {
+                        hlsUrl = variants
+                            .firstOrNull { it.at("content_type").isText("application/x-mpegURL") }
+                            ?.at("url").string()
+                    }
 
                     // Highest bitrate first; equal bitrates keep their order.
                     val bestVariant = variants
@@ -760,6 +768,8 @@ object TwitterParser {
                     isRetweeted = legacy.at("retweeted").bool() ?: false,
                     viewCount = (dartIntTryParse(viewsText) ?: 0L)
                         .coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt(),
+                    lang = legacy.at("lang").string()?.takeIf { it.isNotBlank() },
+                    hlsUrl = hlsUrl,
                 ),
             )
         } catch (e: Exception) {
