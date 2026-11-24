@@ -506,35 +506,42 @@ object TwitterParser {
         return parseTweets(timeline)
     }
 
-    fun parseTweets(timeline: JsonObject): TweetResponse {
+    /**
+     * [skipReplies] and [skipRetweets] leave out what a search query removes
+     * with `-filter:replies` / `-filter:retweets`; a profile timeline has no
+     * such switch, so it is done here.
+     *
+     * [allInstructions] reads the entries of every instruction. Without it
+     * only the first instruction that has any is read, as the Flutter app
+     * does; on a profile timeline with a pinned post that is the pinned post
+     * alone, so the per-account route asks for all of them.
+     */
+    fun parseTweets(
+        timeline: JsonObject,
+        skipReplies: Boolean = false,
+        skipRetweets: Boolean = false,
+        allInstructions: Boolean = false,
+    ): TweetResponse {
         val tweets = mutableListOf<Tweet>()
         val instructions = (timeline.at("instructions") ?: timeline.at("timeline").opt("instructions")).list()
 
-        // Find entries from any instruction that contains them (AddEntries or ReplaceEntry)
-        var entriesInstruction: JsonObject? = null
+        val entries = ArrayList<JsonElement?>()
         for (instruction in instructions) {
-            if (instruction is JsonObject &&
-                (instruction.at("entries") != null || instruction.at("entry") != null)
-            ) {
-                entriesInstruction = instruction
-                break
-            }
+            if (instruction !is JsonObject) continue
+            val list = instruction.at("entries")
+            val single = instruction.at("entry")
+            if (list == null && single == null) continue
+            if (list != null) entries.addAll(list.list()) else entries.add(single)
+            if (!allInstructions) break
         }
 
-        if (entriesInstruction == null) {
+        if (entries.isEmpty() && instructions.none { it is JsonObject && (it.at("entries") != null || it.at("entry") != null) }) {
             val types = instructions.joinToString(", ", "(", ")") {
                 TwitterLogFormat.dartToString(it.at("type") ?: it.at("__typename"))
             }
             AppLogger.log("No entries found in instructions. Available types: $types")
             return TweetResponse(tweets = emptyList())
         }
-
-        val entries: List<JsonElement?> =
-            if (entriesInstruction.at("entries") != null) {
-                entriesInstruction.at("entries").list()
-            } else {
-                listOfNotNull(entriesInstruction.at("entry"))
-            }
 
         var cursorTop: String? = null
         var cursorBottom: String? = null
@@ -562,14 +569,14 @@ object TwitterParser {
                     for (item in items) {
                         val itemEntry = item.at("item")
                         if (itemEntry != null) {
-                            parseTweetResult(itemEntry.asMap(), entryId, tweets)
+                            parseTweetResult(itemEntry.asMap(), entryId, tweets, skipReplies, skipRetweets)
                         }
                     }
                     continue
                 }
 
                 if (content.at("entryType").isText("TimelineTimelineItem")) {
-                    parseTweetResult(content.asMap(), entryId, tweets)
+                    parseTweetResult(content.asMap(), entryId, tweets, skipReplies, skipRetweets)
                 }
             } catch (e: Exception) {
                 AppLogger.log("Error parsing entry $entryId: $e")
@@ -592,7 +599,13 @@ object TwitterParser {
             ?: throw JsonShapeException("type '${typeName(this)}' is not a subtype of type 'Map<String, dynamic>'")
 
     /** Reads the post of one timeline item and appends it to [tweets]; a post that cannot be read is skipped. */
-    fun parseTweetResult(itemContent: JsonObject, entryId: String, tweets: MutableList<Tweet>) {
+    fun parseTweetResult(
+        itemContent: JsonObject,
+        entryId: String,
+        tweets: MutableList<Tweet>,
+        skipReplies: Boolean = false,
+        skipRetweets: Boolean = false,
+    ) {
         try {
             var tweetResult: JsonElement? =
                 itemContent.at("itemContent").opt("tweet_results").opt("result")
@@ -608,7 +621,10 @@ object TwitterParser {
                 tweetResult = tweetResult.at("tweet")
             }
 
+            tweetResult = withLegacyShape(tweetResult ?: return)
             var legacy: JsonElement = tweetResult.at("legacy") ?: return
+
+            if (skipReplies && legacy.at("in_reply_to_status_id_str") != null) return
 
             var tweetId: String =
                 (tweetResult.at("rest_id") ?: tweetResult.at("tweet").opt("rest_id")).string() ?: entryId
@@ -621,10 +637,12 @@ object TwitterParser {
                 ?: legacy.at("retweeted_status_result")
                 ?: legacy.at("repostedStatusResults")
             if (retweetedStatusResult != null && retweetedStatusResult.at("result") != null) {
+                if (skipRetweets) return
                 var retweetedResult = retweetedStatusResult.at("result")
                 if (retweetedResult.at("rest_id") == null && retweetedResult.at("tweet") != null) {
                     retweetedResult = retweetedResult.at("tweet")
                 }
+                retweetedResult = retweetedResult?.let { withLegacyShape(it) }
                 val retweetedLegacy = retweetedResult.at("legacy")
                 if (retweetedLegacy != null) {
                     legacy = retweetedLegacy
@@ -747,6 +765,51 @@ object TwitterParser {
         } catch (e: Exception) {
             AppLogger.log("Error in parseTweetResult for $entryId: $e")
         }
+    }
+
+    /**
+     * Since November 2026 X also serves posts with the text and date under
+     * `details`, the counters under `counts` and the media under
+     * `media_entities2`, and `legacy` holds little more than the language.
+     * Returns such a post with a `legacy` object in the older layout, which
+     * is what the rest of this parser reads; any other post is returned as
+     * it is.
+     */
+    fun withLegacyShape(result: JsonElement): JsonElement {
+        if (result !is JsonObject) return result
+        val details = result["details"] as? JsonObject ?: return result
+        val oldLegacy = result["legacy"] as? JsonObject
+        if (oldLegacy != null && (oldLegacy.containsKey("full_text") || oldLegacy.containsKey("extended_entities"))) {
+            return result
+        }
+
+        val legacy = LinkedHashMap<String, JsonElement>()
+        if (oldLegacy != null) legacy.putAll(oldLegacy)
+        for (key in listOf("full_text", "created_at_ms", "display_text_range")) {
+            details[key].orNull()?.let { legacy[key] = it }
+        }
+        (result["counts"] as? JsonObject)?.let { counts ->
+            for ((key, value) in counts) if (value !is JsonNull) legacy[key] = value
+        }
+        val media = result["media_entities2"] as? JsonArray
+        if (media != null && media.isNotEmpty()) {
+            legacy["extended_entities"] = JsonObject(mapOf("media" to media))
+        }
+        // A reply names the post it answers; the exact layout of that object is not relied on.
+        val replyTo = result["reply_to_results"].orNull() ?: details["reply_to_results"].orNull()
+        if (replyTo != null && !legacy.containsKey("in_reply_to_status_id_str")) {
+            legacy["in_reply_to_status_id_str"] =
+                JsonPrimitive(replyTo.opt("rest_id").string() ?: replyTo.opt("result").opt("rest_id").string() ?: "")
+        }
+        (result["viewer_state"] as? JsonObject ?: result["viewer"] as? JsonObject)?.let { viewer ->
+            for (key in listOf("favorited", "retweeted", "bookmarked")) {
+                viewer[key].orNull()?.let { if (!legacy.containsKey(key)) legacy[key] = it }
+            }
+        }
+
+        val out = LinkedHashMap<String, JsonElement>(result)
+        out["legacy"] = JsonObject(legacy)
+        return JsonObject(out)
     }
 
     /** Dart `v['bitrate'] ?? 0`, which had to be a number to be compared. */

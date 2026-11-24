@@ -35,3 +35,37 @@ Installed over the Flutter app (same id, same signing key), the native app:
 
 Nothing from the Flutter app is deleted. If the database cannot be opened the app starts empty
 and asks for a login.
+
+## Signing of the CI builds
+
+The CI workflows (`build-native.yml`, `build-apk.yml`) sign every APK with one fixed test key, so a
+new CI build installs over the previous one. The key is held in the repository's Actions secrets
+(`CI_KEYSTORE_BASE64`, `CI_KEYSTORE_PASSWORD`, `CI_KEY_ALIAS`); it is not in the repository and it
+is not the release key (`release.yml` uses its own secrets). Each run prints the certificate of
+the APK it built. SHA-256 of the certificate:
+
+    2F:AF:2D:FE:04:9F:96:C2:C7:ED:BF:9E:AA:D3:88:0D:A6:38:49:C9:5F:E9:CD:D9:2F:E4:90:9D:92:02:5F:6B
+
+Without the secrets (a fork) the build falls back to the runner's debug key and says so in the log.
+
+## Talking to X (state of 2026-11-24)
+
+`x-client-transaction-id`, in this order; the log line of every request names the source
+(`txId=webview-module|kotlin|third-party|missing`), never the value:
+
+1. X's own generator, found and called in the hidden x.com page (`TransactionIdScript`).
+2. The same algorithm in Kotlin (`TransactionIdGenerator`), from the public x.com document. Which
+   key bytes it reads is looked up in X's public scripts (`TransactionIdAssets`), with the values
+   of 2026-11-24 as the fallback. The page is kept for an hour and read again after a 404.
+3. The third-party service of the Flutter app. Its host no longer resolves; after a failure it is
+   left alone for 30 minutes.
+
+Search, when `SearchTimeline` answers 404 with every id:
+
+1. the operation the x.com search page itself runs, read from that page (`PageOperations`);
+2. for a query that names accounts (`from:a OR from:b`), the timelines of those accounts
+   (`AccountTimelineFallback`, operation `UserTweets`). Differences from the search: a page of the
+   feed covers a few accounts, not the whole query; only the newest ~20 posts of each account are
+   seen; replies, reposts, media type and the minimum like count are filtered in the app; a query
+   without accounts (hashtag, trending) has no replacement. Timelines are cached for 10 minutes and
+   the route stops before X's rate limit for `UserTweets` is used up.

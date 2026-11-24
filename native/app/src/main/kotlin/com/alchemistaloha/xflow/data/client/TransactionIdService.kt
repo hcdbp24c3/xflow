@@ -34,12 +34,21 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 /**
- * Computes the `x-client-transaction-id` header by running X's own algorithm
- * inside a hidden WebView that has x.com loaded ([TransactionIdWebViewHost]).
+ * Gets the `x-client-transaction-id` header from X's own generator, inside
+ * a hidden WebView that has x.com loaded ([TransactionIdWebViewHost]): the
+ * page's generator script is found and called
+ * ([TransactionIdScript.moduleGeneratorScript]). When that gives nothing the
+ * caller goes on to [LocalTransactionId].
  */
 object TransactionIdService {
     /** How long one id may take before the request goes on without a local id. */
     private const val RESULT_TIMEOUT_MS = 2000L
+
+    /** The first id of a page also has to find the generator among the page's scripts. */
+    private const val FIRST_RESULT_TIMEOUT_MS = 8000L
+
+    /** After a failure the page is left alone this long; requests use the other sources meanwhile. */
+    private const val RETRY_AFTER_FAILURE_MS = 60_000L
     private const val RESULT_POLL_MS = 20L
 
     // Touched on the main thread only.
@@ -54,6 +63,8 @@ object TransactionIdService {
     private var loadStartedAt = 0L
     private var localOkCount = 0
     private var localFailCount = 0
+    private var pausedUntil = 0L
+    private var lastProblem: String? = null
 
     /** A request made while the page is still loading waits this long for it, counted from the load start. */
     private const val PAGE_WAIT_MS = 8000L
@@ -66,7 +77,8 @@ object TransactionIdService {
 
     /** One line for the log viewer: whether ids are being made locally. */
     fun statusLine(): String =
-        "TXID status: webView=${if (webView != null) "attached" else "none"} ready=$isReady localOk=$localOkCount localFail=$localFailCount"
+        "TXID status: webView=${if (webView != null) "attached" else "none"} ready=$isReady moduleOk=$localOkCount moduleFail=$localFailCount" +
+            (lastProblem?.let { " lastProblem=$it" } ?: "") + " | " + LocalTransactionId.statusLine()
 
     /** Dart callers wrote `TransactionIdService.instance`. */
     val instance: TransactionIdService get() = this
@@ -75,14 +87,15 @@ object TransactionIdService {
     fun attach(webView: WebView?) {
         this.webView = webView
         scriptInstalled = false
+        pausedUntil = 0L
     }
 
     fun markReady(ready: Boolean) {
         isReady = ready
         if (ready) loadStartedAt = 0L
-        if (!ready) {
-            scriptInstalled = false
-        }
+        // A new page: the generator has to be found again.
+        scriptInstalled = false
+        pausedUntil = 0L
     }
 
     /** The id for a request to [path], or null when the page is not ready or the script fails. */
@@ -110,31 +123,44 @@ object TransactionIdService {
                 return@withContext null
             }
 
+            if (android.os.SystemClock.elapsedRealtime() < pausedUntil) return@withContext null
+
             try {
                 ensureScriptInstalled(view)
                 val id = normalizeJavaScriptResult(runGenerator(view, path, method))
-                if (id == null) {
-                    localFailCount++
-                    AppLogger.log("TXID local generation returned nothing")
+                if (id == null || !ID_SHAPE.matches(id)) {
+                    failed(view, if (id == null) "the generator returned nothing" else "unexpected shape (length=${id.length})")
+                    null
                 } else {
                     localOkCount++
-                    if (localOkCount == 1) AppLogger.log("TXID local generation works (length=${id.length})")
+                    if (localOkCount == 1) AppLogger.log("TXID webview-module works (length=${id.length})")
+                    id
                 }
-                id
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                localFailCount++
-                // The script must be installed again if the page was replaced under us.
-                scriptInstalled = false
-                AppLogger.log("TXID local generation failed: ${e::class.simpleName}: ${e.message}")
+                failed(view, "${e::class.simpleName}: ${e.message}")
                 null
             }
         }
 
+    private val ID_SHAPE = Regex("^[A-Za-z0-9+/=_-]{40,200}$")
+
+    /** Notes the failure and leaves the page alone for a while; the search for the generator starts over after that. */
+    private fun failed(view: WebView, problem: String) {
+        localFailCount++
+        pausedUntil = android.os.SystemClock.elapsedRealtime() + RETRY_AFTER_FAILURE_MS
+        scriptInstalled = false
+        if (problem != lastProblem || localFailCount == 1) {
+            AppLogger.log("TXID webview-module failed: $problem; using the other sources for ${RETRY_AFTER_FAILURE_MS / 1000}s")
+        }
+        lastProblem = problem
+        view.evaluateJavascript("window.__xflowTxidModule = null;", null)
+    }
+
     private suspend fun ensureScriptInstalled(view: WebView) {
         if (scriptInstalled) return
-        evaluate(view, TransactionIdScript.embeddedGeneratorScript)
+        evaluate(view, TransactionIdScript.moduleGeneratorScript)
         scriptInstalled = true
     }
 
@@ -151,10 +177,8 @@ object TransactionIdService {
             (function() {
               var store = window.__xflowTxidResults = window.__xflowTxidResults || {};
               (async function() {
-                return await window.__xflowGenerateTransactionId(
-                  ${JsonPrimitive(path)},
-                  ${JsonPrimitive(method)}
-                );
+                var found = await window.__xflowTxidModule;
+                return await found.fn(${JsonPrimitive(path)}, ${JsonPrimitive(method)});
               })().then(
                 function(v) { store[$token] = { value: v == null ? null : String(v) }; },
                 function(e) { store[$token] = { error: String(e) }; }
@@ -174,6 +198,7 @@ object TransactionIdService {
             })();
         """.trimIndent()
 
+        val timeout = if (localOkCount == 0) FIRST_RESULT_TIMEOUT_MS else RESULT_TIMEOUT_MS
         var waited = 0L
         while (true) {
             val raw = evaluate(view, readScript)
@@ -188,8 +213,8 @@ object TransactionIdService {
                 val value = result["value"]
                 return if (value == null || value is JsonNull) null else (value as JsonPrimitive).content
             }
-            if (waited >= RESULT_TIMEOUT_MS) {
-                throw IllegalStateException("no result after ${RESULT_TIMEOUT_MS}ms")
+            if (waited >= timeout) {
+                throw IllegalStateException("no result after ${timeout}ms")
             }
             delay(RESULT_POLL_MS)
             waited += RESULT_POLL_MS

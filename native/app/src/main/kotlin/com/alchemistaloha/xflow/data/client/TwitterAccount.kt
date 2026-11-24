@@ -140,58 +140,44 @@ object TwitterAccount {
             }
         }
 
-        // Try to get x-client-transaction-id
-        var transactionId: String?
+        // x-client-transaction-id: X's own generator in the hidden page, then
+        // the Kotlin generator, then the third-party service.
+        var transactionId: String? = null
         var txIdStatus = "missing"
+        var madeInKotlin = false
         try {
-            transactionId = when (transactionIdMode) {
-                TransactionIdMode.generated -> TransactionIdService.generateForRequest(
-                    uri.path,
-                    method = method,
-                )
-                TransactionIdMode.placeholder -> TransactionIdMode.PLACEHOLDER_VALUE
-                TransactionIdMode.none -> null
-            }
-            if (transactionIdMode == TransactionIdMode.placeholder) {
-                combinedHeaders["x-client-transaction-id"] = TransactionIdMode.PLACEHOLDER_VALUE
-                txIdStatus = "placeholder"
-            } else if (transactionIdMode == TransactionIdMode.none) {
-                txIdStatus = "none:requested"
-            } else if (transactionId != null) {
-                combinedHeaders["x-client-transaction-id"] = transactionId
-                txIdStatus = "local:len=${transactionId.length}"
-            } else {
-                val transactionUri = XUri.http(
-                    "x-client-transaction-id-generator.xyz",
-                    "/generate-x-client-transaction-id", mapOf("path" to uri.path),
-                )
-                val transactionResponse = execute(
-                    generatorClient,
-                    Request.Builder().url(transactionUri.toString()).get().build(),
-                )
-                if (transactionResponse.statusCode == 200) {
-                    val field = (Json.parseToJsonElement(transactionResponse.text()) as JsonObject)["x-client-transaction-id"]
-                    transactionId = when {
-                        field == null || field is JsonNull -> null
-                        field is JsonPrimitive && field.isString -> field.content
-                        else -> throw IllegalStateException("x-client-transaction-id is not a string")
-                    }
+            when (transactionIdMode) {
+                TransactionIdMode.placeholder -> {
+                    combinedHeaders["x-client-transaction-id"] = TransactionIdMode.PLACEHOLDER_VALUE
+                    txIdStatus = "placeholder"
+                }
+                TransactionIdMode.none -> txIdStatus = "none:requested"
+                TransactionIdMode.generated -> {
+                    transactionId = TransactionIdService.generateForRequest(uri.path, method = method)
                     if (transactionId != null) {
-                        combinedHeaders["x-client-transaction-id"] = transactionId
-                        txIdStatus = "fallback:len=${transactionId.length}"
+                        txIdStatus = "webview-module:len=${transactionId.length}"
                     } else {
-                        txIdStatus = "missing:null-response-field"
+                        transactionId = LocalTransactionId.generate(uri.path, method)
+                        if (transactionId != null) {
+                            madeInKotlin = true
+                            txIdStatus = "kotlin:len=${transactionId.length}"
+                        } else {
+                            transactionId = thirdPartyTransactionId(uri.path)
+                            txIdStatus = if (transactionId != null) {
+                                "third-party:len=${transactionId.length}"
+                            } else {
+                                "missing:$thirdPartyState"
+                            }
+                        }
                     }
-                } else {
-                    txIdStatus = "missing:generator-status-${transactionResponse.statusCode}"
+                    if (transactionId != null) combinedHeaders["x-client-transaction-id"] = transactionId
                 }
             }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            // Reached when the page had no id and the fallback generator could not be used either.
-            txIdStatus = "missing:fallback-error:${e::class.simpleName}"
-            AppLogger.log("TXID fallback generator failed: ${e::class.simpleName}: ${e.message}")
+            txIdStatus = "missing:error:${e::class.simpleName}"
+            AppLogger.log("TXID could not be made: ${e::class.simpleName}: ${e.message}")
         }
 
         AppLogger.log(
@@ -217,6 +203,8 @@ object TwitterAccount {
             "HTTP request end: $requestSummary status=${response.statusCode} elapsedMs=$elapsedMs bytes=${response.bodyBytes.size}",
         )
 
+        if (response.statusCode == 404 && madeInKotlin) LocalTransactionId.onRefused()
+
         if (response.statusCode == 200) {
             // Force UTF-8 decoding for the body string to avoid mangling and caching issues
             val decodedBody = String(response.bodyBytes, Charsets.UTF_8)
@@ -232,6 +220,83 @@ object TwitterAccount {
                 (FetchDiagnostics.shorten(response.text(), 300) ?: "(empty)"),
         )
         return HttpResult(response.statusCode, response.text(), response.headers)
+    }
+
+    // --- the third-party transaction id service -------------------------
+    // Kept as the last resort, as in the Flutter app. Its host stopped
+    // resolving in November 2026, so a failure pauses it instead of adding
+    // a failed lookup to every request.
+
+    private const val THIRD_PARTY_PAUSE_MS = 30 * 60_000L
+
+    @Volatile private var thirdPartyPausedUntil = 0L
+    @Volatile private var thirdPartyState = "third-party-not-tried"
+
+    private suspend fun thirdPartyTransactionId(path: String): String? {
+        val now = System.currentTimeMillis()
+        if (now < thirdPartyPausedUntil) return null
+        try {
+            val transactionUri = XUri.http(
+                "x-client-transaction-id-generator.xyz",
+                "/generate-x-client-transaction-id", mapOf("path" to path),
+            )
+            val response = execute(generatorClient, Request.Builder().url(transactionUri.toString()).get().build())
+            if (response.statusCode == 200) {
+                val field = (Json.parseToJsonElement(response.text()) as? JsonObject)?.get("x-client-transaction-id")
+                if (field is JsonPrimitive && field.isString && field.content.isNotEmpty()) return field.content
+                thirdPartyState = "third-party-empty-answer"
+            } else {
+                thirdPartyState = "third-party-status-${response.statusCode}"
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            thirdPartyState = "third-party-${e::class.simpleName}"
+        }
+        thirdPartyPausedUntil = now + THIRD_PARTY_PAUSE_MS
+        AppLogger.log(
+            "TXID third-party generator unusable ($thirdPartyState); not asked again for ${THIRD_PARTY_PAUSE_MS / 60_000} minutes",
+        )
+        thirdPartyState += ":paused"
+        return null
+    }
+
+    // --- pages and scripts of x.com --------------------------------------
+
+    private val documentHeaders = mapOf(
+        "accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-language" to "en-US,en;q=0.9",
+        "user-agent" to X_MOBILE_USER_AGENT,
+    )
+
+    /** A public page or script, fetched without the session. Null when it is not a 200. */
+    suspend fun fetchPublicText(url: String): String? {
+        val builder = Request.Builder().url(url).get()
+        for ((name, value) in documentHeaders) builder.header(name, value)
+        val response = execute(httpClient, builder.build())
+        return if (response.statusCode == 200) String(response.bodyBytes, Charsets.UTF_8) else null
+    }
+
+    /**
+     * A page of x.com as the logged-in account sees it (the session cookies
+     * are sent, nothing else). Null when logged out or when it is not a 200.
+     */
+    suspend fun fetchSessionDocument(uri: XUri): String? {
+        if (uri.host != "x.com") throw IllegalArgumentException("not a page of x.com")
+        val account = _currentAccount ?: return null
+        val cookie = ((Json.parseToJsonElement(account.authHeader) as? JsonObject)?.get("Cookie") as? JsonPrimitive)?.content
+            ?: return null
+        val builder = Request.Builder().url(uri.toString()).get()
+        val headers = Headers.Builder()
+        for ((name, value) in documentHeaders) headers.add(name, value)
+        headers.addUnsafeNonAscii("cookie", cookie)
+        builder.headers(headers.build())
+        val startedAt = System.nanoTime()
+        val response = execute(httpClient, builder.build())
+        AppLogger.log(
+            "HTTP page: ${uri.path} status=${response.statusCode} elapsedMs=${(System.nanoTime() - startedAt) / 1_000_000} bytes=${response.bodyBytes.size}",
+        )
+        return if (response.statusCode == 200) String(response.bodyBytes, Charsets.UTF_8) else null
     }
 
     fun setCurrentAccount(account: Account) {
@@ -291,7 +356,7 @@ object TwitterAccount {
 
 /** What a request sends as `x-client-transaction-id`. */
 enum class TransactionIdMode {
-    /** The id computed in the hidden x.com page; the third-party generator when the page has none. */
+    /** A real id: X's generator in the hidden x.com page, else the Kotlin generator, else the third-party service. */
     generated,
 
     /** The fixed text the Flutter client ended up sending (its WebView call returned an unresolved promise). */

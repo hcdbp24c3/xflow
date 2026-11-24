@@ -1,8 +1,11 @@
 package com.alchemistaloha.xflow.data.client
 
+import com.alchemistaloha.xflow.core.client.AccountTimelineFallback
 import com.alchemistaloha.xflow.core.client.FetchDiagnostics
 import com.alchemistaloha.xflow.core.client.FetchIssue
 import com.alchemistaloha.xflow.core.client.FetchOutcome
+import com.alchemistaloha.xflow.core.client.PageOperation
+import com.alchemistaloha.xflow.core.client.PageOperations
 import com.alchemistaloha.xflow.core.client.TwitterFeatures
 import com.alchemistaloha.xflow.core.client.TwitterParser
 import com.alchemistaloha.xflow.core.client.XUri
@@ -237,6 +240,47 @@ class TwitterClient {
             return searchAttempts
         }
 
+        // ---- when SearchTimeline stays refused -----------------------------
+        // 1. The search operation the x.com search page itself uses, read
+        //    from that page ([PageOperations]).
+        // 2. The timelines of the accounts the query names
+        //    ([AccountTimelineFallback]).
+
+        /** The search operation found in the x.com search page, per "latest" / "top". */
+        private val pageSearchOperations = HashMap<Boolean, Pair<PageOperation, String>>()
+
+        /** Until when the search page is not read again after it gave no usable operation. */
+        @Volatile
+        private var pageSearchPausedUntil = 0L
+
+        /** Until when searches naming accounts go straight to those accounts' timelines. */
+        @Volatile
+        private var accountRouteUntil = 0L
+
+        private const val PAGE_SEARCH_PAUSE_MS = 30 * 60_000L
+        private const val ACCOUNT_ROUTE_MS = 10 * 60_000L
+
+        /** At most this many pages of accounts are read for one page of the feed. */
+        private const val ACCOUNT_ROUTE_MAX_PAGES = 3
+        private const val ACCOUNT_ROUTE_ENOUGH = 6
+
+        /** A timeline read for the account route is reused this long, to stay well inside X's limit for UserTweets. */
+        private const val ACCOUNT_TIMELINE_CACHE_MS = 10 * 60_000L
+
+        /** What X's rate limit headers last said about UserTweets: requests left, and when the window ends. */
+        @Volatile
+        private var userTweetsRemaining: Int? = null
+
+        @Volatile
+        private var userTweetsResetAt = 0L
+
+        private const val USER_TWEETS_RESERVE = 3
+
+        private fun userTweetsExhausted(): Boolean {
+            val remaining = userTweetsRemaining ?: return false
+            return remaining <= USER_TWEETS_RESERVE && System.currentTimeMillis() < userTweetsResetAt
+        }
+
         private fun JsonElement?.child(key: String): JsonElement? {
             if (this == null || this is JsonNull) return null
             val value = asMap()[key]
@@ -448,7 +492,18 @@ class TwitterClient {
         val variables = TwitterParser.searchTimelineVariables(finalQuery, count, sort, cursor)
 
         val operation = "SearchTimeline"
+        val plan = AccountTimelineFallback.plan(finalQuery)
         try {
+            if (plan != null &&
+                (AccountTimelineFallback.isCursor(cursor) ||
+                    (cursor == null && System.currentTimeMillis() < accountRouteUntil))
+            ) {
+                return fetchAccountTimelines(plan, cursor, sort, filters, minFaves, cooldownMinutes, timeoutSeconds)
+            }
+            if (AccountTimelineFallback.isCursor(cursor)) {
+                return failed(FetchOutcome(operation, FetchIssue.empty, detail = "no account in the query for cursor $cursor"))
+            }
+
             val attempts = searchAttemptOrder()
             var refused: FetchOutcome? = null
 
@@ -522,6 +577,18 @@ class TwitterClient {
             }
 
             allSearchAttemptsFailedAt = System.currentTimeMillis()
+
+            val fromPage = searchThroughPageOperation(finalQuery, sort, cursor, count, cooldownMinutes, timeoutSeconds)
+            if (fromPage != null) return fromPage
+
+            if (plan != null && cursor == null) {
+                accountRouteUntil = System.currentTimeMillis() + ACCOUNT_ROUTE_MS
+                AppLogger.log(
+                    "Search route: refused (${attempts.joinToString(", ")}); reading the timelines of the " +
+                        "${plan.screenNames.size} accounts of the query instead, for ${ACCOUNT_ROUTE_MS / 60_000} minutes",
+                )
+                return fetchAccountTimelines(plan, null, sort, filters, minFaves, cooldownMinutes, timeoutSeconds)
+            }
             return failed(
                 (refused ?: FetchOutcome(operation, FetchIssue.http, httpStatus = 404)).let {
                     it.copy(detail = "refused with ${attempts.joinToString(", ")}" + (it.detail?.let { d -> " | $d" } ?: ""))
@@ -533,6 +600,172 @@ class TwitterClient {
             AppLogger.log("Exception in fetchTrendingMedia: $e")
             return failed(FetchDiagnostics.forException(operation, e))
         }
+    }
+
+    /**
+     * The search as the x.com search page runs it: the page's document names
+     * the operation and its variables, and the request repeats them with
+     * this query. Null when the page gives no such operation or X refuses
+     * it too. (Could not be tried while writing: the search page needs a
+     * login.)
+     */
+    private suspend fun searchThroughPageOperation(
+        finalQuery: String,
+        sort: FeedSort?,
+        cursor: String?,
+        count: Int,
+        cooldownMinutes: Int,
+        timeoutSeconds: Int,
+    ): TweetResponse? {
+        val latest = sort != FeedSort.trending
+        var known = synchronized(pageSearchOperations) { pageSearchOperations[latest] }
+        if (known == null) {
+            if (System.currentTimeMillis() < pageSearchPausedUntil) return null
+            val html = withTimeoutOrNull(timeoutSeconds * 1000L) {
+                TwitterAccount.fetchSessionDocument(PageOperations.searchPageUri(finalQuery, latest))
+            }
+            val operations = if (html == null) emptyMap() else PageOperations.parse(html)
+            val found = operations.values
+                .mapNotNull { op -> PageOperations.variableHolding(op, finalQuery)?.let { op to it } }
+                .sortedByDescending { it.first.name.contains("Search") }
+                .firstOrNull()
+            if (found == null) {
+                pageSearchPausedUntil = System.currentTimeMillis() + PAGE_SEARCH_PAUSE_MS
+                AppLogger.log(
+                    "Search route: the x.com search page gave no search operation " +
+                        "(page=${if (html == null) "not loaded" else "${html.length} bytes"}, operations=${operations.keys}); " +
+                        "not read again for ${PAGE_SEARCH_PAUSE_MS / 60_000} minutes",
+                )
+                return null
+            }
+            AppLogger.log(
+                "Search route: the x.com search page uses ${found.first.name} (${found.first.queryId}), " +
+                    "query in '${found.second}', variables=${found.first.variables.keys}",
+            )
+            synchronized(pageSearchOperations) { pageSearchOperations[latest] = found }
+            known = found
+        }
+
+        val (pageOperation, queryVariable) = known
+        val overrides = LinkedHashMap<String, JsonElement>()
+        overrides[queryVariable] = JsonPrimitive(finalQuery)
+        if (pageOperation.variables["count"] != null) overrides["count"] = JsonPrimitive(count)
+        if (cursor != null || pageOperation.variables.containsKey("cursor")) {
+            overrides["cursor"] = cursor?.let { JsonPrimitive(it) } ?: JsonNull
+        }
+        val uri = pageOperation.uri(overrides)
+        logTimelineRequest("searchThroughPageOperation", uri, context = linkedMapOf("query" to finalQuery, "cursor" to cursor))
+        val response = fetchInTurn(uri, timeoutSeconds = timeoutSeconds)
+        if (response.statusCode == 429) {
+            handleRateLimit(cooldownMinutes)
+            return failed(FetchDiagnostics.forStatus(pageOperation.name, 429, response.body))
+        }
+        if (response.statusCode != 200) {
+            AppLogger.log("Search route: ${pageOperation.name} from the search page answered ${response.statusCode}; dropped")
+            synchronized(pageSearchOperations) { pageSearchOperations.remove(latest) }
+            pageSearchPausedUntil = System.currentTimeMillis() + PAGE_SEARCH_PAUSE_MS
+            return null
+        }
+        val tweetResponse = TwitterParser.parseAgnosticTimeline(decode(response.body).asMap())
+        AppLogger.log("Search route: ${pageOperation.name} from the search page, posts=${tweetResponse.tweets.size}")
+        return parsed(pageOperation.name, tweetResponse, response.body)
+    }
+
+    /**
+     * A page of the feed out of the timelines of the accounts in [plan],
+     * for when the search is refused. See [AccountTimelineFallback] for how
+     * this differs from the search.
+     */
+    private suspend fun fetchAccountTimelines(
+        plan: AccountTimelineFallback.Plan,
+        cursor: String?,
+        sort: FeedSort?,
+        filters: Set<MediaFilter>?,
+        minFaves: Int?,
+        cooldownMinutes: Int,
+        timeoutSeconds: Int,
+    ): TweetResponse {
+        val operation = "UserTweets(accounts)"
+        val known = Repository.getSubscriptions().associate { it.screenName.removePrefix("@").lowercase() to it.id }
+        val wantedFaves = minFaves ?: plan.minFaves
+        val timelines = ArrayList<List<Tweet>>()
+        var offset = AccountTimelineFallback.offset(cursor)
+        var next: String? = null
+        var asked = 0
+        var answered = 0
+        var firstFailure: FetchOutcome? = null
+        var merged = emptyList<Tweet>()
+
+        var limited = false
+        for (round in 0 until ACCOUNT_ROUTE_MAX_PAGES) {
+            for (name in AccountTimelineFallback.page(plan.screenNames, offset)) {
+                if (userTweetsExhausted()) {
+                    limited = true
+                    break
+                }
+                val userId = known[name.lowercase()]?.takeIf { it.isNotEmpty() && it.all(Char::isDigit) }
+                    ?: fetchProfile(name)?.id?.takeIf { it.isNotEmpty() && it.all(Char::isDigit) }
+                asked++
+                if (userId == null) {
+                    if (firstFailure == null) firstFailure = FetchOutcome(operation, FetchIssue.badResponse, detail = "no user id for an account")
+                    continue
+                }
+                val timeline = fetchUserTimeline(
+                    userId,
+                    cooldownMinutes = cooldownMinutes,
+                    timeoutSeconds = timeoutSeconds,
+                    skipReplies = plan.skipReplies,
+                    skipRetweets = plan.skipRetweets,
+                    allInstructions = true,
+                    cacheDurationMillis = ACCOUNT_TIMELINE_CACHE_MS,
+                )
+                val outcome = timeline.outcome
+                if (outcome != null && outcome.issue != FetchIssue.ok && outcome.issue != FetchIssue.empty) {
+                    if (firstFailure == null) firstFailure = outcome
+                    if (outcome.httpStatus == 429) break
+                    continue
+                }
+                answered++
+                timelines.add(timeline.tweets)
+            }
+            next = AccountTimelineFallback.nextCursor(plan.screenNames, offset)
+            merged = AccountTimelineFallback.merge(timelines, sort, filters, wantedFaves)
+            if (limited) {
+                // Come back to the same accounts once X's window has moved on.
+                next = if (offset > 0) "accounts:$offset" else null
+                break
+            }
+            if (merged.size >= ACCOUNT_ROUTE_ENOUGH || next == null || firstFailure?.httpStatus == 429) break
+            offset = AccountTimelineFallback.offset(next)
+        }
+
+        AppLogger.log(
+            "Search route: account timelines, accounts=$answered/$asked of ${plan.screenNames.size} " +
+                "posts=${timelines.sumOf { it.size }} kept=${merged.size} minFaves=${wantedFaves ?: "none"} " +
+                "skipReplies=${plan.skipReplies} skipReposts=${plan.skipRetweets} next=${next ?: "end"}" +
+                if (limited) " (stopped: X's rate limit for UserTweets is nearly used up)" else "",
+        )
+        if (limited && merged.isEmpty()) {
+            return failed(
+                FetchOutcome(
+                    operation, FetchIssue.rateLimited,
+                    detail = "search refused; X's limit for reading account timelines is used up until " +
+                        java.text.SimpleDateFormat("HH:mm", java.util.Locale.US).format(java.util.Date(userTweetsResetAt)),
+                ),
+            )
+        }
+        if (answered == 0 && firstFailure != null) {
+            return failed(firstFailure.copy(detail = "search refused, account timelines too" + (firstFailure.detail?.let { " | $it" } ?: "")))
+        }
+        val outcome = FetchOutcome(
+            operation,
+            if (merged.isEmpty()) FetchIssue.empty else FetchIssue.ok,
+            httpStatus = 200,
+            items = merged.size,
+            detail = "search refused; read $answered/$asked account timelines, ${timelines.sumOf { it.size }} posts before filters",
+        )
+        AppLogger.log(outcome.toLogLine())
+        return TweetResponse(tweets = merged, cursorBottom = next, outcome = outcome)
     }
 
     suspend fun fetchSubscribedMedia(
@@ -664,6 +897,10 @@ class TwitterClient {
         cooldownMinutes: Int = 15,
         count: Int = 20,
         timeoutSeconds: Int = 15,
+        skipReplies: Boolean = false,
+        skipRetweets: Boolean = false,
+        allInstructions: Boolean = false,
+        cacheDurationMillis: Long? = null,
     ): TweetResponse {
         AppLogger.log("Fetching user timeline for userId: $userId, cursor: $cursor")
         val uri = TwitterParser.userTweetsUri(userId, count, cursor)
@@ -678,7 +915,12 @@ class TwitterClient {
                     "count" to count,
                 ),
             )
-            val response = fetchInTurn(uri, timeoutSeconds = timeoutSeconds)
+            val response = fetchInTurn(uri, timeoutSeconds = timeoutSeconds, cacheDurationMillis = cacheDurationMillis)
+            response.headers["x-rate-limit-remaining"]?.toIntOrNull()?.let { remaining ->
+                userTweetsRemaining = remaining
+                userTweetsResetAt = (response.headers["x-rate-limit-reset"]?.toLongOrNull() ?: 0L) * 1000L
+                if (remaining <= USER_TWEETS_RESERVE) AppLogger.log("UserTweets: $remaining requests left in X's rate limit window")
+            }
 
             if (response.statusCode == 429) {
                 handleRateLimit(cooldownMinutes)
@@ -702,7 +944,7 @@ class TwitterClient {
             }
 
             AppLogger.log("Successfully fetched user timeline for userId: $userId")
-            val tweetResponse = TwitterParser.parseTweets(timeline.asMap())
+            val tweetResponse = TwitterParser.parseTweets(timeline.asMap(), skipReplies, skipRetweets, allInstructions)
             logTimelineResult(
                 "fetchUserTimeline",
                 tweetResponse,

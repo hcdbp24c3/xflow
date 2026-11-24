@@ -1,11 +1,78 @@
 package com.alchemistaloha.xflow.core.client
 
 /**
- * The JavaScript that computes the `x-client-transaction-id` header inside a
- * page of x.com. Copied verbatim from the Flutter app
- * (transaction_id_service.dart); do not reformat.
+ * JavaScript run inside a page of x.com for the `x-client-transaction-id`
+ * header.
+ *
+ * [embeddedGeneratorScript] is the generator of the Flutter app, copied
+ * verbatim (transaction_id_service.dart); do not reformat. It no longer
+ * produces an id: it looks for the loading frames under the class `.r-0`
+ * and reads fixed key bytes, and X changed both. It is kept for reference
+ * and is not run any more; [moduleGeneratorScript] replaced it.
  */
 object TransactionIdScript {
+    /** The import of the generator script, as a JavaScript regular expression literal. */
+    const val MODULE_IMPORT_JS_REGEX: String =
+        """/import\(\s*[`'"]\.\/([A-Za-z0-9_-]+\.js)[`'"]\s*\)\.then\(\s*\(?\s*(\w+)\s*\)?\s*=>\s*\2\.default\(\)\s*\)/g"""
+
+    /**
+     * Finds X's own generator in the loaded page and keeps it as the promise
+     * `window.__xflowTxidModule`.
+     *
+     * The x.com client loads the generator as a separate script with
+     * `import("./<name>.js").then(e => e.default())`, from the script that
+     * sets the `x-client-transaction-id` header. This looks through the
+     * scripts of the page for that import, loads the same script (the
+     * browser gives back the instance the page already uses) and checks
+     * that it returns an id. Nothing about the algorithm is assumed, so a
+     * new build of the generator keeps working.
+     */
+    const val moduleGeneratorScript: String = """(function () {
+  if (window.__xflowTxidModule) return true;
+  window.__xflowTxidModule = (async function () {
+    var seen = {}, urls = [];
+    function add(u) {
+      if (typeof u !== 'string' || seen[u]) return;
+      if (!/^https:\/\/[a-z0-9.-]*(twimg\.com|x\.com)\/.*\.js(\?|${'$'})/.test(u)) return;
+      seen[u] = 1;
+      urls.push(u);
+    }
+    performance.getEntriesByType('resource').forEach(function (e) { add(e.name); });
+    document.querySelectorAll('script[src],link[href]').forEach(function (n) { add(n.src || n.href); });
+    var header = 'x-client-transaction-id';
+    var tried = 0;
+    for (var i = 0; i < urls.length; i++) {
+      var text;
+      try {
+        text = await (await fetch(urls[i], { cache: 'force-cache' })).text();
+      } catch (e) { continue; }
+      var at = text.indexOf(header);
+      if (at < 0) continue;
+      var re = $MODULE_IMPORT_JS_REGEX;
+      var candidates = [], m;
+      while ((m = re.exec(text))) {
+        candidates.push({ name: m[1], distance: Math.abs(m.index - at) });
+      }
+      candidates.sort(function (a, b) { return a.distance - b.distance; });
+      for (var c = 0; c < candidates.length && c < 3; c++) {
+        tried++;
+        try {
+          var mod = await import(new URL('./' + candidates[c].name, urls[i]).href);
+          var fn = await mod.default();
+          if (typeof fn !== 'function') continue;
+          var probe = await fn('/i/api/graphql/probe/Probe', 'GET');
+          if (typeof probe === 'string' && /^[A-Za-z0-9+\/]{60,}${'$'}/.test(probe)) {
+            return { fn: fn, scripts: urls.length };
+          }
+        } catch (e) {}
+      }
+    }
+    throw new Error('generator module not found (scripts=' + urls.length + ' candidates=' + tried + ')');
+  })();
+  window.__xflowTxidModule.catch(function () {});
+  return true;
+})();"""
+
     const val embeddedGeneratorScript: String = """(() => {
   if (window.__xflowGenerateTransactionId) return;
 
